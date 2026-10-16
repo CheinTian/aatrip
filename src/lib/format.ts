@@ -1,10 +1,14 @@
 export function formatMoney(
   cents: number,
   currency = "CNY",
-  options: { signed?: boolean; compact?: boolean } = {}
+  options: {
+    signed?: boolean;
+    compact?: boolean;
+    locale?: string;
+  } = {}
 ) {
   const value = cents / 100;
-  const formatted = new Intl.NumberFormat("zh-CN", {
+  const formatted = new Intl.NumberFormat(options.locale ?? "zh-CN", {
     style: "currency",
     currency,
     minimumFractionDigits: 2,
@@ -17,23 +21,36 @@ export function formatMoney(
   return formatted;
 }
 
-export function formatDate(value: string, style: "short" | "long" = "short") {
+export function formatDate(
+  value: string,
+  style: "short" | "long" = "short",
+  locale = "zh-CN"
+) {
   if (!value) return "";
   const date = new Date(`${value}T00:00:00`);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("zh-CN", {
+  return new Intl.DateTimeFormat(locale, {
     month: style === "short" ? "numeric" : "long",
     day: "numeric",
     weekday: style === "long" ? "short" : undefined
   }).format(date);
 }
 
-export function formatDateRange(startDate: string, endDate: string) {
-  if (!startDate && !endDate) return "日期待定";
+export function formatDateRange(
+  startDate: string,
+  endDate: string,
+  locale = "zh-CN",
+  emptyLabel = "日期待定"
+) {
+  if (!startDate && !endDate) return emptyLabel;
   if (startDate && endDate) {
-    return `${formatDate(startDate)} - ${formatDate(endDate)}`;
+    return `${formatDate(startDate, "short", locale)} - ${formatDate(
+      endDate,
+      "short",
+      locale
+    )}`;
   }
-  return formatDate(startDate || endDate, "long");
+  return formatDate(startDate || endDate, "long", locale);
 }
 
 export function todayISO() {

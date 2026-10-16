@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   ArrowRight,
   CalendarDays,
@@ -11,7 +11,10 @@ import {
   Sparkles,
   Users
 } from "lucide-react";
+import { getErrorMessage } from "../lib/api";
+import { useI18n, type Locale } from "../lib/i18n";
 import type { CreateTripInput } from "../types";
+import { LanguageSwitch } from "./LanguageSwitch";
 
 interface WelcomeScreenProps {
   onOpenTrip: (id: string) => void;
@@ -19,18 +22,18 @@ interface WelcomeScreenProps {
     input: CreateTripInput
   ) => Promise<{ id: string; inviteCode: string }>;
   onJoinTrip: (code: string) => Promise<{ id: string }>;
-  onCreateDemo: () => Promise<{ id: string; inviteCode: string }>;
+  onCreateDemo: (locale: Locale) => Promise<{ id: string; inviteCode: string }>;
 }
 
 const currencies = [
-  { value: "CNY", label: "人民币 CNY" },
-  { value: "JPY", label: "日元 JPY" },
-  { value: "THB", label: "泰铢 THB" },
-  { value: "USD", label: "美元 USD" },
-  { value: "EUR", label: "欧元 EUR" },
-  { value: "SGD", label: "新加坡元 SGD" },
-  { value: "HKD", label: "港币 HKD" }
-];
+  { value: "CNY", key: "currency.CNY" },
+  { value: "JPY", key: "currency.JPY" },
+  { value: "THB", key: "currency.THB" },
+  { value: "USD", key: "currency.USD" },
+  { value: "EUR", key: "currency.EUR" },
+  { value: "SGD", key: "currency.SGD" },
+  { value: "HKD", key: "currency.HKD" }
+] as const;
 
 const emptyTrip: CreateTripInput = {
   name: "",
@@ -38,7 +41,7 @@ const emptyTrip: CreateTripInput = {
   startDate: "",
   endDate: "",
   currency: "CNY",
-  members: ["我"]
+  members: [""]
 };
 
 export function WelcomeScreen({
@@ -47,11 +50,30 @@ export function WelcomeScreen({
   onJoinTrip,
   onCreateDemo
 }: WelcomeScreenProps) {
+  const { locale, t } = useI18n();
   const [mode, setMode] = useState<"create" | "join">("create");
-  const [form, setForm] = useState<CreateTripInput>(emptyTrip);
+  const [form, setForm] = useState<CreateTripInput>(() => ({
+    ...emptyTrip,
+    members: [t("welcome.defaultMember")]
+  }));
   const [joinCode, setJoinCode] = useState("");
   const [busy, setBusy] = useState<"create" | "join" | "demo" | "">("");
   const [error, setError] = useState("");
+  const previousDefaultMember = useRef(t("welcome.defaultMember"));
+
+  useEffect(() => {
+    const nextDefaultMember = t("welcome.defaultMember");
+    setForm((current) => ({
+      ...current,
+      members:
+        current.members.length === 1 &&
+        current.members[0] === previousDefaultMember.current
+          ? [nextDefaultMember]
+          : current.members
+    }));
+    previousDefaultMember.current = nextDefaultMember;
+    setError("");
+  }, [locale, t]);
 
   function update<K extends keyof CreateTripInput>(
     key: K,
@@ -73,11 +95,11 @@ export function WelcomeScreen({
     event.preventDefault();
     const members = form.members.map((member) => member.trim()).filter(Boolean);
     if (!form.name.trim()) {
-      setError("先给这次旅行起个名字");
+      setError(t("errors.trip_name_required"));
       return;
     }
     if (members.length === 0) {
-      setError("至少留下一位同行成员");
+      setError(t("errors.members_required"));
       return;
     }
 
@@ -87,7 +109,7 @@ export function WelcomeScreen({
       const trip = await onCreateTrip({ ...form, members });
       onOpenTrip(trip.id);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "创建失败");
+      setError(getErrorMessage(cause, t, "errors.create_failed"));
     } finally {
       setBusy("");
     }
@@ -96,7 +118,7 @@ export function WelcomeScreen({
   async function handleJoin(event: FormEvent) {
     event.preventDefault();
     if (joinCode.trim().length !== 6) {
-      setError("请输入 6 位行程码");
+      setError(t("errors.invite_code_length"));
       return;
     }
     setBusy("join");
@@ -105,7 +127,7 @@ export function WelcomeScreen({
       const trip = await onJoinTrip(joinCode.trim().toUpperCase());
       onOpenTrip(trip.id);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "加入失败");
+      setError(getErrorMessage(cause, t, "errors.join_failed"));
     } finally {
       setBusy("");
     }
@@ -115,10 +137,10 @@ export function WelcomeScreen({
     setBusy("demo");
     setError("");
     try {
-      const trip = await onCreateDemo();
+      const trip = await onCreateDemo(locale);
       onOpenTrip(trip.id);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "生成示例失败");
+      setError(getErrorMessage(cause, t, "errors.demo_failed"));
     } finally {
       setBusy("");
     }
@@ -127,51 +149,52 @@ export function WelcomeScreen({
   return (
     <main className="welcome-page">
       <header className="welcome-nav">
-        <a className="brand" href="#" aria-label="AA簿首页">
+        <a className="brand" href="#" aria-label={t("welcome.homeLabel")}>
           <span className="brand-mark">AA</span>
           <span className="brand-copy">
-            <b>AA簿</b>
-            <small>TRAVEL LEDGER</small>
+            <b>{t("brand.name")}</b>
+            <small>{t("brand.tagline")}</small>
           </span>
         </a>
-        <button
-          className="demo-link"
-          type="button"
-          onClick={handleDemo}
-          disabled={Boolean(busy)}
-        >
-          {busy === "demo" ? (
-            <LoaderCircle className="spin" size={16} />
-          ) : (
-            <Sparkles size={16} />
-          )}
-          看看示例
-        </button>
+        <div className="welcome-actions">
+          <LanguageSwitch />
+          <button
+            className="demo-link"
+            type="button"
+            onClick={handleDemo}
+            disabled={Boolean(busy)}
+          >
+            {busy === "demo" ? (
+              <LoaderCircle className="spin" size={16} />
+            ) : (
+              <Sparkles size={16} />
+            )}
+            {t("welcome.demo")}
+          </button>
+        </div>
       </header>
 
       <div className="welcome-layout">
         <section className="welcome-story">
           <div className="story-kicker">
-            <span>旅程账本</span>
+            <span>{t("welcome.kicker")}</span>
             <span className="story-line" />
             <span>2026</span>
           </div>
           <h1>
-            一起出发，
+            {t("welcome.headlineLine1")}
             <br />
-            也要一起算清。
+            {t("welcome.headlineLine2")}
           </h1>
-          <p className="story-copy">
-            订房、包车、吃饭、买票。每一笔都记在原地，谁先垫付，谁该补多少，一眼明白。
-          </p>
+          <p className="story-copy">{t("welcome.story")}</p>
 
           <div className="route-board" aria-hidden="true">
             <div className="route-board-top">
               <span>
                 <Route size={15} />
-                本次路线
+                {t("welcome.route")}
               </span>
-              <span>04 人同行</span>
+              <span>{t("welcome.travelers")}</span>
             </div>
             <div className="route-track">
               <span className="route-dot route-dot-start" />
@@ -180,33 +203,33 @@ export function WelcomeScreen({
             </div>
             <div className="route-board-bottom">
               <span>
-                <b>上海</b>
-                <small>出发</small>
+                <b>{t("welcome.routeStart")}</b>
+                <small>{t("welcome.routeStartLabel")}</small>
               </span>
               <span>
-                <b>昆明</b>
-                <small>中转</small>
+                <b>{t("welcome.routeMid")}</b>
+                <small>{t("welcome.routeMidLabel")}</small>
               </span>
               <span>
-                <b>大理</b>
-                <small>目的地</small>
+                <b>{t("welcome.routeEnd")}</b>
+                <small>{t("welcome.routeEndLabel")}</small>
               </span>
             </div>
             <div className="route-stamp">
               <MapPin size={22} />
-              <span>自由行</span>
+              <span>{t("welcome.stamp")}</span>
             </div>
           </div>
 
           <div className="story-notes">
             <span>
-              <Coins size={17} /> 自动结算
+              <Coins size={17} /> {t("welcome.noteSettle")}
             </span>
             <span>
-              <Users size={17} /> 多人共享
+              <Users size={17} /> {t("welcome.noteShare")}
             </span>
             <span>
-              <CalendarDays size={17} /> 每日明细
+              <CalendarDays size={17} /> {t("welcome.noteDaily")}
             </span>
           </div>
         </section>
@@ -223,7 +246,7 @@ export function WelcomeScreen({
                 setError("");
               }}
             >
-              新建行程
+              {t("welcome.createTab")}
             </button>
             <button
               type="button"
@@ -235,7 +258,7 @@ export function WelcomeScreen({
                 setError("");
               }}
             >
-              加入行程
+              {t("welcome.joinTab")}
             </button>
           </div>
 
@@ -244,17 +267,17 @@ export function WelcomeScreen({
               <div className="form-heading">
                 <span className="step-number">01</span>
                 <div>
-                  <h2>这趟去哪儿？</h2>
-                  <p>先建立账本，邀请同行的人一起记。</p>
+                  <h2>{t("welcome.createHeading")}</h2>
+                  <p>{t("welcome.createCopy")}</p>
                 </div>
               </div>
 
               <label className="field">
-                <span>行程名称</span>
+                <span>{t("welcome.tripName")}</span>
                 <input
                   value={form.name}
                   onChange={(event) => update("name", event.target.value)}
-                  placeholder="例如：十一云南慢旅行"
+                  placeholder={t("welcome.tripNamePlaceholder")}
                   maxLength={40}
                   autoFocus
                 />
@@ -262,7 +285,7 @@ export function WelcomeScreen({
 
               <div className="field-row">
                 <label className="field">
-                  <span>目的地</span>
+                  <span>{t("welcome.destination")}</span>
                   <div className="input-with-icon">
                     <MapPin size={16} />
                     <input
@@ -270,13 +293,13 @@ export function WelcomeScreen({
                       onChange={(event) =>
                         update("destination", event.target.value)
                       }
-                      placeholder="大理 · 丽江"
+                      placeholder={t("welcome.destinationPlaceholder")}
                       maxLength={40}
                     />
                   </div>
                 </label>
                 <label className="field field-currency">
-                  <span>记账币种</span>
+                  <span>{t("welcome.currency")}</span>
                   <select
                     value={form.currency}
                     onChange={(event) =>
@@ -285,7 +308,7 @@ export function WelcomeScreen({
                   >
                     {currencies.map((currency) => (
                       <option key={currency.value} value={currency.value}>
-                        {currency.label}
+                        {t(currency.key)}
                       </option>
                     ))}
                   </select>
@@ -294,7 +317,7 @@ export function WelcomeScreen({
 
               <div className="field-row">
                 <label className="field">
-                  <span>出发日期</span>
+                  <span>{t("welcome.startDate")}</span>
                   <input
                     type="date"
                     value={form.startDate}
@@ -304,7 +327,7 @@ export function WelcomeScreen({
                   />
                 </label>
                 <label className="field">
-                  <span>返程日期</span>
+                  <span>{t("welcome.endDate")}</span>
                   <input
                     type="date"
                     value={form.endDate}
@@ -315,7 +338,7 @@ export function WelcomeScreen({
               </div>
 
               <fieldset className="member-fieldset">
-                <legend>同行成员</legend>
+                <legend>{t("welcome.members")}</legend>
                 <div className="member-inputs">
                   {form.members.map((member, index) => (
                     <div className="member-input" key={index}>
@@ -327,14 +350,16 @@ export function WelcomeScreen({
                         onChange={(event) =>
                           updateMember(index, event.target.value)
                         }
-                        placeholder="成员名字"
+                        placeholder={t("welcome.memberPlaceholder")}
                         maxLength={16}
                       />
                       {form.members.length > 1 && (
                         <button
                           type="button"
                           className="icon-button subtle"
-                          aria-label={`删除成员 ${index + 1}`}
+                          aria-label={t("welcome.removeMember", {
+                            index: index + 1
+                          })}
                           onClick={() =>
                             update(
                               "members",
@@ -359,7 +384,7 @@ export function WelcomeScreen({
                   disabled={form.members.length >= 16}
                 >
                   <Plus size={15} />
-                  再加一位
+                  {t("welcome.addMember")}
                 </button>
               </fieldset>
 
@@ -375,7 +400,7 @@ export function WelcomeScreen({
                 ) : (
                   <ArrowRight size={19} />
                 )}
-                建立旅行账本
+                {t("welcome.createTrip")}
               </button>
             </form>
           ) : (
@@ -384,13 +409,13 @@ export function WelcomeScreen({
                 <div className="ticket-edge left" />
                 <span>INVITE</span>
                 <strong>6</strong>
-                <small>位行程码</small>
+                <small>{t("welcome.inviteCodeHint")}</small>
                 <div className="ticket-edge right" />
               </div>
-              <h2>加入大家正在记的账</h2>
-              <p>输入同伴分享给你的 6 位行程码。</p>
+              <h2>{t("welcome.joinHeading")}</h2>
+              <p>{t("welcome.joinCopy")}</p>
               <label className="field code-field">
-                <span>行程码</span>
+                <span>{t("welcome.inviteCode")}</span>
                 <input
                   value={joinCode}
                   onChange={(event) =>
@@ -420,7 +445,7 @@ export function WelcomeScreen({
                 ) : (
                   <ArrowRight size={19} />
                 )}
-                打开这个账本
+                {t("welcome.openTrip")}
               </button>
             </form>
           )}
@@ -429,7 +454,7 @@ export function WelcomeScreen({
 
       <footer className="welcome-footer">
         <span>AA</span>
-        <p>旅行一起走，账单也一起算。</p>
+        <p>{t("welcome.footer")}</p>
         <span>2026</span>
       </footer>
     </main>

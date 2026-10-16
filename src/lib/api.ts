@@ -5,9 +5,37 @@ import type {
   Trip,
   TripSnapshot
 } from "../types";
+import type { Locale, TranslationKey } from "./i18n";
 
 interface ApiErrorBody {
   error?: string;
+  code?: string;
+}
+
+export class ApiError extends Error {
+  code: string;
+  status: number;
+
+  constructor(message: string, code: string, status: number) {
+    super(message);
+    this.name = "ApiError";
+    this.code = code;
+    this.status = status;
+  }
+}
+
+export function getErrorMessage(
+  cause: unknown,
+  t: (key: TranslationKey) => string,
+  fallbackKey: TranslationKey
+) {
+  if (cause instanceof ApiError && cause.code) {
+    const key = `errors.${cause.code}` as TranslationKey;
+    const translated = t(key);
+    if (translated !== key) return translated;
+  }
+  if (cause instanceof Error && cause.message) return cause.message;
+  return t(fallbackKey);
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -21,7 +49,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as ApiErrorBody;
-    throw new Error(body.error || "请求失败，请稍后重试");
+    throw new ApiError(
+      body.error || "Request failed",
+      body.code || "request_failed",
+      response.status
+    );
   }
 
   return (await response.json()) as T;
@@ -46,9 +78,10 @@ export const api = {
     });
   },
 
-  createDemo() {
+  createDemo(locale: Locale) {
     return request<{ id: string; inviteCode: string }>("/api/demo", {
-      method: "POST"
+      method: "POST",
+      body: JSON.stringify({ locale })
     });
   },
 

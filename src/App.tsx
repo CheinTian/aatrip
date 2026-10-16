@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { LoaderCircle, TriangleAlert } from "lucide-react";
-import { api } from "./lib/api";
+import { api, getErrorMessage } from "./lib/api";
+import { useI18n } from "./lib/i18n";
 import type { TripSnapshot } from "./types";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { TripWorkspace } from "./components/TripWorkspace";
@@ -11,6 +12,7 @@ function tripIdFromHash() {
 }
 
 export default function App() {
+  const { t } = useI18n();
   const [tripId, setTripId] = useState(tripIdFromHash);
   const [snapshot, setSnapshot] = useState<TripSnapshot | null>(null);
   const [loading, setLoading] = useState(Boolean(tripId));
@@ -30,14 +32,14 @@ export default function App() {
         setSnapshot(nextSnapshot);
         localStorage.setItem("aatrip:lastTrip", id);
       } catch (cause) {
-        const message = cause instanceof Error ? cause.message : "加载失败";
+        const message = getErrorMessage(cause, t, "errors.load_failed");
         setError(message);
         if (!quiet) setSnapshot(null);
       } finally {
         if (!quiet) setLoading(false);
       }
     },
-    []
+    [t]
   );
 
   useEffect(() => {
@@ -69,7 +71,7 @@ export default function App() {
         <div className="loader-mark" aria-hidden="true">
           <LoaderCircle size={28} />
         </div>
-        <p>正在翻开账本...</p>
+        <p>{t("app.loading")}</p>
       </main>
     );
   }
@@ -80,7 +82,7 @@ export default function App() {
         <div className="error-mark" aria-hidden="true">
           <TriangleAlert size={28} />
         </div>
-        <h1>这个账本暂时打不开</h1>
+        <h1>{t("app.errorTitle")}</h1>
         <p>{error}</p>
         <button
           className="button button-dark"
@@ -89,7 +91,7 @@ export default function App() {
             window.location.hash = "";
           }}
         >
-          返回首页
+          {t("common.returnHome")}
         </button>
       </main>
     );

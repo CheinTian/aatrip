@@ -92,8 +92,36 @@ function json(data: unknown, status = 200) {
   });
 }
 
-function error(message: string, status = 400) {
-  return json({ error: message }, status);
+function error(
+  message: string,
+  status = 400,
+  code = "request_failed"
+) {
+  return json({ error: message, code }, status);
+}
+
+class ApiFailure extends Error {
+  code: string;
+  status: number;
+
+  constructor(code: string, message: string, status = 400) {
+    super(message);
+    this.name = "ApiFailure";
+    this.code = code;
+    this.status = status;
+  }
+}
+
+function errorFrom(
+  cause: unknown,
+  fallbackMessage: string,
+  fallbackCode: string,
+  fallbackStatus = 400
+) {
+  if (cause instanceof ApiFailure) {
+    return error(cause.message, cause.status, cause.code);
+  }
+  return error(fallbackMessage, fallbackStatus, fallbackCode);
 }
 
 function uid() {
@@ -330,8 +358,12 @@ async function createTripCore(
         .slice(0, 16)
     : [];
 
-  if (!name) throw new Error("请填写行程名称");
-  if (memberNames.length === 0) throw new Error("至少添加一位同行成员");
+  if (!name) {
+    throw new ApiFailure("trip_name_required", "请填写行程名称");
+  }
+  if (memberNames.length === 0) {
+    throw new ApiFailure("members_required", "至少添加一位同行成员");
+  }
 
   const id = uid();
   const code = inviteCode();
@@ -387,9 +419,11 @@ async function createExpenseCore(
   const splitMode: SplitMode =
     input.splitMode === "custom" ? "custom" : "equal";
 
-  if (!title) throw new Error("请填写支出名称");
+  if (!title) {
+    throw new ApiFailure("expense_title_required", "请填写支出名称");
+  }
   if (!Number.isFinite(amountCents) || amountCents <= 0) {
-    throw new Error("支出金额必须大于 0");
+    throw new ApiFailure("expense_amount_invalid", "支出金额必须大于 0");
   }
 
   const memberResult = await db
@@ -400,7 +434,9 @@ async function createExpenseCore(
     (memberResult.results ?? []).map((member) => member.id)
   );
 
-  if (!memberIds.has(paidBy)) throw new Error("付款人不存在");
+  if (!memberIds.has(paidBy)) {
+    throw new ApiFailure("payer_not_found", "付款人不存在");
+  }
 
   const participants = Array.isArray(input.participants)
     ? [...new Set(input.participants.filter((id) => memberIds.has(id)))]
@@ -408,7 +444,9 @@ async function createExpenseCore(
   let shares: ExpenseShare[] = [];
 
   if (splitMode === "equal") {
-    if (participants.length === 0) throw new Error("至少选择一位分摊成员");
+    if (participants.length === 0) {
+      throw new ApiFailure("participants_required", "至少选择一位分摊成员");
+    }
     shares = divideEqually(amountCents, participants);
   } else {
     shares = Array.isArray(input.customShares)
@@ -425,7 +463,10 @@ async function createExpenseCore(
       0
     );
     if (shares.length === 0 || customTotal !== amountCents) {
-      throw new Error("指定金额之和必须等于支出总额");
+      throw new ApiFailure(
+        "custom_total_mismatch",
+        "指定金额之和必须等于支出总额"
+      );
     }
   }
 
@@ -463,14 +504,17 @@ async function createExpenseCore(
   return expenseId;
 }
 
-async function createDemo(db: D1Database) {
+async function createDemo(db: D1Database, locale = "zh-CN") {
+  const isEnglish = locale === "en-US";
   const trip = await createTripCore(db, {
-    name: "云南七日慢旅行",
-    destination: "大理 · 丽江",
+    name: isEnglish ? "Seven Days in Yunnan" : "云南七日慢旅行",
+    destination: isEnglish ? "Dali · Lijiang" : "大理 · 丽江",
     startDate: "2026-10-18",
     endDate: "2026-10-24",
     currency: "CNY",
-    members: ["阿岚", "大周", "小满", "老许"]
+    members: isEnglish
+      ? ["Mia", "Leo", "Nora", "Alex"]
+      : ["阿岚", "大周", "小满", "老许"]
   });
 
   const membersResult = await db
@@ -486,29 +530,29 @@ async function createDemo(db: D1Database) {
 
   const expenses: CreateExpenseInput[] = [
     {
-      title: "民宿三晚",
+      title: isEnglish ? "Three nights at guesthouse" : "民宿三晚",
       amountCents: 168000,
       category: "住宿",
       paidBy: members[0].id,
       date: "2026-10-18",
-      notes: "古城东门小院",
+      notes: isEnglish ? "Courtyard by the old town east gate" : "古城东门小院",
       splitMode: "equal",
       participants: allMembers,
       customShares: []
     },
     {
-      title: "环洱海包车",
+      title: isEnglish ? "Erhai Lake charter" : "环洱海包车",
       amountCents: 68000,
       category: "交通",
       paidBy: members[1].id,
       date: "2026-10-19",
-      notes: "两天含司机餐补",
+      notes: isEnglish ? "Two days, driver meals included" : "两天含司机餐补",
       splitMode: "equal",
       participants: allMembers,
       customShares: []
     },
     {
-      title: "菌子火锅",
+      title: isEnglish ? "Mushroom hotpot" : "菌子火锅",
       amountCents: 43600,
       category: "餐饮",
       paidBy: members[2].id,
@@ -519,23 +563,23 @@ async function createDemo(db: D1Database) {
       customShares: []
     },
     {
-      title: "玉龙雪山门票",
+      title: isEnglish ? "Jade Dragon Snow Mountain tickets" : "玉龙雪山门票",
       amountCents: 48000,
       category: "门票",
       paidBy: members[3].id,
       date: "2026-10-21",
-      notes: "含大索道",
+      notes: isEnglish ? "Includes the main cableway" : "含大索道",
       splitMode: "equal",
       participants: allMembers,
       customShares: []
     },
     {
-      title: "扎染体验",
+      title: isEnglish ? "Tie-dye workshop" : "扎染体验",
       amountCents: 36000,
       category: "其他",
       paidBy: members[0].id,
       date: "2026-10-22",
-      notes: "两人体验",
+      notes: isEnglish ? "For two travelers" : "两人体验",
       splitMode: "custom",
       participants: [members[0].id, members[2].id],
       customShares: [
@@ -573,12 +617,19 @@ async function handleApi(request: Request, env: Env) {
   }
 
   if (path === "/api/demo" && method === "POST") {
+    let locale = "zh-CN";
     try {
-      const result = await createDemo(env.DB);
+      const body = (await request.json()) as { locale?: string };
+      if (body.locale === "en-US") locale = "en-US";
+    } catch {
+      // An empty request body still creates the default Chinese sample.
+    }
+
+    try {
+      const result = await createDemo(env.DB, locale);
       return json(result, 201);
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : "创建示例失败";
-      return error(message, 500);
+      return errorFrom(cause, "创建示例失败", "demo_failed", 500);
     }
   }
 
@@ -588,8 +639,7 @@ async function handleApi(request: Request, env: Env) {
       const result = await createTripCore(env.DB, input);
       return json(result, 201);
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : "创建失败";
-      return error(message);
+      return errorFrom(cause, "创建失败", "create_failed");
     }
   }
 
@@ -601,10 +651,12 @@ async function handleApi(request: Request, env: Env) {
         .prepare("SELECT id FROM trips WHERE invite_code = ?")
         .bind(code)
         .first<{ id: string }>();
-      if (!trip) return error("没有找到这个行程码", 404);
+      if (!trip) {
+        return error("没有找到这个行程码", 404, "invite_not_found");
+      }
       return json({ id: trip.id });
     } catch {
-      return error("行程码格式不正确");
+      return error("行程码格式不正确", 400, "invalid_invite_code");
     }
   }
 
@@ -614,7 +666,9 @@ async function handleApi(request: Request, env: Env) {
 
     if (method === "GET") {
       const snapshot = await getSnapshot(env.DB, tripId);
-      return snapshot ? json(snapshot) : error("行程不存在", 404);
+      return snapshot
+        ? json(snapshot)
+        : error("行程不存在", 404, "trip_not_found");
     }
 
     if (method === "PUT") {
@@ -622,7 +676,9 @@ async function handleApi(request: Request, env: Env) {
         .prepare("SELECT * FROM trips WHERE id = ?")
         .bind(tripId)
         .first<TripRow>();
-      if (!current) return error("行程不存在", 404);
+      if (!current) {
+        return error("行程不存在", 404, "trip_not_found");
+      }
 
       try {
         const body = (await request.json()) as Partial<Trip>;
@@ -639,7 +695,9 @@ async function handleApi(request: Request, env: Env) {
         const startDate = validDate(body.startDate) || current.start_date;
         const endDate = validDate(body.endDate) || current.end_date;
 
-        if (!name) return error("行程名称不能为空");
+        if (!name) {
+          return error("行程名称不能为空", 400, "trip_name_empty");
+        }
         await env.DB
           .prepare(
             `UPDATE trips
@@ -654,8 +712,8 @@ async function handleApi(request: Request, env: Env) {
           .bind(tripId)
           .first<TripRow>();
         return json(toTrip(updated as TripRow));
-      } catch {
-        return error("更新行程失败");
+      } catch (cause) {
+        return errorFrom(cause, "更新行程失败", "trip_update_failed");
       }
     }
   }
@@ -668,14 +726,16 @@ async function handleApi(request: Request, env: Env) {
     try {
       const body = (await request.json()) as { name?: string };
       const name = cleanText(body.name, 16);
-      if (!name) return error("请填写成员名字");
+      if (!name) {
+        return error("请填写成员名字", 400, "member_name_required");
+      }
 
       const countResult = await env.DB
         .prepare("SELECT COUNT(*) AS count FROM members WHERE trip_id = ?")
         .bind(tripId)
         .first<{ count: number }>();
       if (Number(countResult?.count ?? 0) >= 16) {
-        return error("单个行程最多 16 位成员");
+        return error("单个行程最多 16 位成员", 400, "member_limit");
       }
 
       const member: Member = {
@@ -698,8 +758,8 @@ async function handleApi(request: Request, env: Env) {
         )
         .run();
       return json(member, 201);
-    } catch {
-      return error("添加成员失败");
+    } catch (cause) {
+      return errorFrom(cause, "添加成员失败", "member_add_failed");
     }
   }
 
@@ -719,7 +779,11 @@ async function handleApi(request: Request, env: Env) {
       .first<{ count: number }>();
 
     if (Number(reference?.count ?? 0) > 0) {
-      return error("该成员已参与支出，暂不能删除");
+      return error(
+        "该成员已参与支出，暂不能删除",
+        400,
+        "member_has_expenses"
+      );
     }
 
     await env.DB
@@ -739,8 +803,7 @@ async function handleApi(request: Request, env: Env) {
       const id = await createExpenseCore(env.DB, tripId, input);
       return json({ id }, 201);
     } catch (cause) {
-      const message = cause instanceof Error ? cause.message : "保存支出失败";
-      return error(message);
+      return errorFrom(cause, "保存支出失败", "save_expense_failed");
     }
   }
 
@@ -757,7 +820,7 @@ async function handleApi(request: Request, env: Env) {
     return json({ ok: true });
   }
 
-  return error("接口不存在", 404);
+  return error("接口不存在", 404, "endpoint_not_found");
 }
 
 export default {

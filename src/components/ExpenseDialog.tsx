@@ -18,11 +18,16 @@ import {
 } from "lucide-react";
 import { api } from "../lib/api";
 import {
-  formatMoney,
   initials,
   parseMoneyToCents,
   todayISO
 } from "../lib/format";
+import {
+  expenseCategories,
+  expenseCategoryKey
+} from "../lib/categories";
+import { getErrorMessage } from "../lib/api";
+import { useI18n } from "../lib/i18n";
 import type { CreateExpenseInput, Member, Trip } from "../types";
 
 interface ExpenseDialogProps {
@@ -32,14 +37,14 @@ interface ExpenseDialogProps {
   onSaved: () => Promise<void>;
 }
 
-const categoryOptions = [
-  { name: "餐饮", icon: Utensils },
-  { name: "住宿", icon: BedDouble },
-  { name: "交通", icon: CarFront },
-  { name: "门票", icon: Ticket },
-  { name: "购物", icon: ShoppingBag },
-  { name: "其他", icon: MoreHorizontal }
-];
+const categoryIcons = {
+  餐饮: Utensils,
+  住宿: BedDouble,
+  交通: CarFront,
+  门票: Ticket,
+  购物: ShoppingBag,
+  其他: MoreHorizontal
+} as const;
 
 const currencySymbols: Record<string, string> = {
   CNY: "¥",
@@ -62,6 +67,7 @@ export function ExpenseDialog({
   onClose,
   onSaved
 }: ExpenseDialogProps) {
+  const { t, formatMoney } = useI18n();
   const amountInputRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
@@ -126,19 +132,19 @@ export function ExpenseDialog({
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!title.trim()) {
-      setError("请填写这笔支出是什么");
+      setError(t("errors.expense_title_required"));
       return;
     }
     if (amountCents <= 0) {
-      setError("请输入大于 0 的金额");
+      setError(t("errors.expense_amount_invalid"));
       return;
     }
     if (splitMode === "equal" && participants.length === 0) {
-      setError("至少选择一位分摊成员");
+      setError(t("errors.participants_required"));
       return;
     }
     if (splitMode === "custom" && customTotal !== amountCents) {
-      setError("每个人的金额之和必须等于支出总额");
+      setError(t("errors.custom_total_mismatch"));
       return;
     }
 
@@ -167,7 +173,7 @@ export function ExpenseDialog({
       await api.addExpense(trip.id, input);
       await onSaved();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "保存失败");
+      setError(getErrorMessage(cause, t, "errors.save_expense_failed"));
     } finally {
       setBusy(false);
     }
@@ -192,12 +198,12 @@ export function ExpenseDialog({
         <header className="dialog-header">
           <div>
             <span>NEW EXPENSE</span>
-            <h2 id="expense-dialog-title">记一笔共同支出</h2>
+            <h2 id="expense-dialog-title">{t("dialog.title")}</h2>
           </div>
           <button
             className="icon-button"
             type="button"
-            aria-label="关闭"
+            aria-label={t("common.close")}
             onClick={onClose}
             disabled={busy}
           >
@@ -208,7 +214,7 @@ export function ExpenseDialog({
         <form className="expense-form" onSubmit={handleSubmit}>
           <div className="amount-composer">
             <label>
-              <span>支出金额</span>
+              <span>{t("dialog.amount")}</span>
               <div className="amount-input">
                 <b>{symbol}</b>
                 <input
@@ -221,7 +227,7 @@ export function ExpenseDialog({
               </div>
             </label>
             <div className="amount-preview">
-              <span>人均预估</span>
+              <span>{t("dialog.avgEstimate")}</span>
               <strong>
                 {splitMode === "equal" && participants.length > 0
                   ? formatMoney(
@@ -236,29 +242,31 @@ export function ExpenseDialog({
           </div>
 
           <label className="field">
-            <span>支出名称</span>
+            <span>{t("dialog.name")}</span>
             <input
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              placeholder="例如：环洱海包车"
+              placeholder={t("dialog.namePlaceholder")}
               maxLength={50}
             />
           </label>
 
           <div className="field">
-            <span>分类</span>
+            <span>{t("dialog.category")}</span>
             <div className="category-picker">
-              {categoryOptions.map((option) => {
-                const Icon = option.icon;
+              {expenseCategories.map((categoryName) => {
+                const Icon = categoryIcons[categoryName];
+                const labelKey = expenseCategoryKey(categoryName);
+                if (!labelKey) return null;
                 return (
                   <button
-                    key={option.name}
+                    key={categoryName}
                     type="button"
-                    className={category === option.name ? "active" : ""}
-                    onClick={() => setCategory(option.name)}
+                    className={category === categoryName ? "active" : ""}
+                    onClick={() => setCategory(categoryName)}
                   >
                     <Icon size={17} />
-                    {option.name}
+                    {t(labelKey)}
                   </button>
                 );
               })}
@@ -267,7 +275,7 @@ export function ExpenseDialog({
 
           <div className="field-row">
             <label className="field">
-              <span>谁先垫付</span>
+              <span>{t("dialog.paidBy")}</span>
               <select
                 value={paidBy}
                 onChange={(event) => setPaidBy(event.target.value)}
@@ -280,7 +288,7 @@ export function ExpenseDialog({
               </select>
             </label>
             <label className="field">
-              <span>支出日期</span>
+              <span>{t("dialog.date")}</span>
               <input
                 type="date"
                 value={date}
@@ -290,21 +298,21 @@ export function ExpenseDialog({
           </div>
 
           <div className="field">
-            <span>分摊方式</span>
+            <span>{t("dialog.splitMode")}</span>
             <div className="split-toggle">
               <button
                 type="button"
                 className={splitMode === "equal" ? "active" : ""}
                 onClick={() => setSplitMode("equal")}
               >
-                平均分摊
+                {t("dialog.equal")}
               </button>
               <button
                 type="button"
                 className={splitMode === "custom" ? "active" : ""}
                 onClick={() => setSplitMode("custom")}
               >
-                指定金额
+                {t("dialog.custom")}
               </button>
             </div>
           </div>
@@ -312,7 +320,7 @@ export function ExpenseDialog({
           {splitMode === "equal" ? (
             <div className="split-section">
               <div className="split-heading">
-                <span>参与分摊的人</span>
+                <span>{t("dialog.participants")}</span>
                 <button
                   type="button"
                   onClick={() =>
@@ -324,8 +332,8 @@ export function ExpenseDialog({
                   }
                 >
                   {participants.length === members.length
-                    ? "取消全选"
-                    : "全选"}
+                    ? t("dialog.deselectAll")
+                    : t("dialog.selectAll")}
                 </button>
               </div>
               <div className="participant-grid">
@@ -355,13 +363,15 @@ export function ExpenseDialog({
                         <b>{member.name}</b>
                         <small>
                           {selected && share
-                            ? `应摊 ${formatMoney(
-                                share.amountCents,
-                                trip.currency
-                              )}`
+                            ? t("dialog.shareDue", {
+                                amount: formatMoney(
+                                  share.amountCents,
+                                  trip.currency
+                                )
+                              })
                             : selected
-                              ? "参与分摊"
-                              : "不参与"}
+                              ? t("dialog.participating")
+                              : t("dialog.notParticipating")}
                         </small>
                       </span>
                       <i>{selected && <Check size={14} />}</i>
@@ -373,9 +383,11 @@ export function ExpenseDialog({
           ) : (
             <div className="split-section custom-split">
               <div className="split-heading">
-                <span>指定每人金额</span>
+                <span>{t("dialog.customEach")}</span>
                 <b className={customTotal === amountCents ? "matched" : ""}>
-                  已分配 {formatMoney(customTotal, trip.currency)}
+                  {t("dialog.allocated", {
+                    amount: formatMoney(customTotal, trip.currency)
+                  })}
                 </b>
               </div>
               <div className="custom-share-list">
@@ -413,11 +425,11 @@ export function ExpenseDialog({
           )}
 
           <label className="field">
-            <span>备注（选填）</span>
+            <span>{t("dialog.notes")}</span>
             <textarea
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
-              placeholder="补充订单、地点或约定..."
+              placeholder={t("dialog.notesPlaceholder")}
               maxLength={160}
               rows={3}
             />
@@ -432,7 +444,7 @@ export function ExpenseDialog({
               onClick={onClose}
               disabled={busy}
             >
-              取消
+              {t("common.cancel")}
             </button>
             <button
               type="submit"
@@ -444,7 +456,7 @@ export function ExpenseDialog({
               ) : (
                 <Check size={18} />
               )}
-              保存支出
+              {t("dialog.save")}
             </button>
           </footer>
         </form>

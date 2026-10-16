@@ -26,13 +26,17 @@ import {
 } from "lucide-react";
 import { api } from "../lib/api";
 import {
-  formatDate,
-  formatDateRange,
-  formatMoney,
   initials
 } from "../lib/format";
+import {
+  expenseCategories,
+  expenseCategoryKey
+} from "../lib/categories";
+import { getErrorMessage } from "../lib/api";
+import { useI18n, type TranslationKey } from "../lib/i18n";
 import type { Expense, TripSnapshot } from "../types";
 import { ExpenseDialog } from "./ExpenseDialog";
+import { LanguageSwitch } from "./LanguageSwitch";
 
 type Tab = "overview" | "expenses" | "balances" | "members";
 
@@ -44,16 +48,24 @@ interface TripWorkspaceProps {
 
 const tabs: Array<{
   id: Tab;
-  label: string;
+  labelKey: TranslationKey;
   icon: typeof LayoutDashboard;
 }> = [
-  { id: "overview", label: "总览", icon: LayoutDashboard },
-  { id: "expenses", label: "支出", icon: ReceiptText },
-  { id: "balances", label: "结算", icon: Scale },
-  { id: "members", label: "成员", icon: Users }
+  { id: "overview", labelKey: "nav.overview", icon: LayoutDashboard },
+  { id: "expenses", labelKey: "nav.expenses", icon: ReceiptText },
+  { id: "balances", labelKey: "nav.balances", icon: Scale },
+  { id: "members", labelKey: "nav.members", icon: Users }
 ];
 
-const categories = ["全部", "餐饮", "住宿", "交通", "门票", "购物", "其他"];
+const categories = [
+  { value: "全部", labelKey: "categories.all" },
+  { value: "餐饮", labelKey: "categories.food" },
+  { value: "住宿", labelKey: "categories.lodging" },
+  { value: "交通", labelKey: "categories.transport" },
+  { value: "门票", labelKey: "categories.tickets" },
+  { value: "购物", labelKey: "categories.shopping" },
+  { value: "其他", labelKey: "categories.other" }
+] as const;
 
 const categoryIcons = {
   餐饮: Utensils,
@@ -79,6 +91,7 @@ export function TripWorkspace({
   onRefresh,
   onLeave
 }: TripWorkspaceProps) {
+  const { locale, t, formatDateRange } = useI18n();
   const [tab, setTab] = useState<Tab>("overview");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -136,15 +149,19 @@ export function TripWorkspace({
   );
 
   async function handleDeleteExpense(expense: Expense) {
-    if (!window.confirm(`删除“${expense.title}”？这笔支出会影响所有人的结算。`)) {
+    if (
+      !window.confirm(
+        t("confirm.deleteExpense", { title: expense.title })
+      )
+    ) {
       return;
     }
     try {
       await api.removeExpense(trip.id, expense.id);
       await onRefresh();
-      setNotice("支出已删除");
+      setNotice(t("notices.expenseDeleted"));
     } catch (cause) {
-      setNotice(cause instanceof Error ? cause.message : "删除失败");
+      setNotice(getErrorMessage(cause, t, "errors.delete_failed"));
     }
   }
 
@@ -156,22 +173,22 @@ export function TripWorkspace({
       await api.addMember(trip.id, memberName.trim());
       setMemberName("");
       await onRefresh();
-      setNotice("成员已加入");
+      setNotice(t("notices.memberAdded"));
     } catch (cause) {
-      setNotice(cause instanceof Error ? cause.message : "添加失败");
+      setNotice(getErrorMessage(cause, t, "errors.member_add_failed"));
     } finally {
       setBusy(false);
     }
   }
 
   async function handleRemoveMember(memberId: string, name: string) {
-    if (!window.confirm(`移除成员“${name}”？`)) return;
+    if (!window.confirm(t("confirm.removeMember", { name }))) return;
     try {
       await api.removeMember(trip.id, memberId);
       await onRefresh();
-      setNotice("成员已移除");
+      setNotice(t("notices.memberRemoved"));
     } catch (cause) {
-      setNotice(cause instanceof Error ? cause.message : "移除失败");
+      setNotice(getErrorMessage(cause, t, "errors.member_remove_failed"));
     }
   }
 
@@ -179,49 +196,69 @@ export function TripWorkspace({
     const inviteLink = `${window.location.origin}/#/trip/${trip.id}`;
     try {
       await navigator.clipboard.writeText(
-        `AA簿邀请：${trip.name}\n行程码：${trip.inviteCode}\n链接：${inviteLink}`
+        t("invite.share", {
+          trip: trip.name,
+          code: trip.inviteCode,
+          link: inviteLink
+        })
       );
-      setNotice("邀请信息已复制");
+      setNotice(t("notices.inviteCopied"));
       setShareOpen(false);
     } catch {
-      setNotice(`行程码：${trip.inviteCode}`);
+      setNotice(t("notices.codeOnly", { code: trip.inviteCode }));
     }
   }
 
-  const todayLabel = new Intl.DateTimeFormat("zh-CN", {
+  const todayLabel = new Intl.DateTimeFormat(locale, {
     month: "long",
     day: "numeric",
     weekday: "long"
   }).format(new Date());
 
   const headerCopy: Record<Tab, { eyebrow: string; title: string }> = {
-    overview: { eyebrow: trip.destination || "旅行账本", title: "旅程总览" },
-    expenses: { eyebrow: `${expenses.length} 笔共同支出`, title: "支出明细" },
+    overview: {
+      eyebrow: trip.destination || t("workspace.tripLedger"),
+      title: t("header.overviewTitle")
+    },
+    expenses: {
+      eyebrow: t("header.sharedExpenseCount", { count: expenses.length }),
+      title: t("header.expensesTitle")
+    },
     balances: {
       eyebrow:
-        settlements.length > 0 ? `${settlements.length} 笔待结算` : "当前已结平",
-      title: "谁该补多少"
+        settlements.length > 0
+          ? t("header.pendingSettlementCount", {
+              count: settlements.length
+            })
+          : t("header.settled"),
+      title: t("header.balancesTitle")
     },
-    members: { eyebrow: `${members.length} 人同行`, title: "成员与邀请" }
+    members: {
+      eyebrow: t("header.memberCount", { count: members.length }),
+      title: t("header.membersTitle")
+    }
   };
 
   return (
     <div className="workspace">
       <aside className="sidebar">
-        <a className="sidebar-brand" href="#" onClick={onLeave}>
-          <span className="brand-mark">AA</span>
-          <span className="brand-copy">
-            <b>AA簿</b>
-            <small>TRAVEL LEDGER</small>
-          </span>
-        </a>
+        <div className="sidebar-top">
+          <a className="sidebar-brand" href="#" onClick={onLeave}>
+            <span className="brand-mark">AA</span>
+            <span className="brand-copy">
+              <b>{t("brand.name")}</b>
+              <small>{t("brand.tagline")}</small>
+            </span>
+          </a>
+          <LanguageSwitch tone="dark" />
+        </div>
 
         <div className="sidebar-trip">
           <span className="trip-label">CURRENT TRIP</span>
           <h2>{trip.name}</h2>
           <p>
             <MapPin size={14} />
-            {trip.destination || "目的地待定"}
+            {trip.destination || t("workspace.destinationTbd")}
           </p>
           <p>
             <CalendarDays size={14} />
@@ -229,7 +266,7 @@ export function TripWorkspace({
           </p>
         </div>
 
-        <nav className="side-nav" aria-label="账本导航">
+        <nav className="side-nav" aria-label={t("nav.aria")}>
           {tabs.map((item) => {
             const Icon = item.icon;
             return (
@@ -240,7 +277,7 @@ export function TripWorkspace({
                 onClick={() => setTab(item.id)}
               >
                 <Icon size={19} />
-                <span>{item.label}</span>
+                <span>{t(item.labelKey)}</span>
                 {item.id === "balances" && settlements.length > 0 && (
                   <b className="nav-badge">{settlements.length}</b>
                 )}
@@ -255,12 +292,12 @@ export function TripWorkspace({
             <strong>{trip.inviteCode}</strong>
             <Copy size={16} />
           </button>
-          <small>把行程码发给同行的人</small>
+          <small>{t("workspace.inviteHint")}</small>
         </div>
 
         <button className="leave-button" type="button" onClick={onLeave}>
           <LogOut size={17} />
-          返回首页
+          {t("common.returnHome")}
         </button>
       </aside>
 
@@ -279,20 +316,20 @@ export function TripWorkspace({
                 onClick={() => setShareOpen((open) => !open)}
               >
                 <UserPlus size={18} />
-                邀请同伴
+                {t("workspace.inviteMember")}
               </button>
               {shareOpen && (
                 <div className="share-popover">
-                  <span>行程码</span>
+                  <span>{t("workspace.inviteCode")}</span>
                   <strong>{trip.inviteCode}</strong>
-                  <p>对方注册后输入行程码，就能进入同一个账本。</p>
+                  <p>{t("workspace.invitePopover")}</p>
                   <button
                     className="button button-dark button-wide"
                     type="button"
                     onClick={copyInvite}
                   >
                     <Clipboard size={16} />
-                    复制邀请
+                    {t("common.copyInvite")}
                   </button>
                 </div>
               )}
@@ -303,7 +340,7 @@ export function TripWorkspace({
               onClick={() => setDialogOpen(true)}
             >
               <Plus size={18} />
-              记一笔
+              {t("workspace.addExpense")}
             </button>
           </div>
         </header>
@@ -356,7 +393,7 @@ export function TripWorkspace({
         </div>
       </main>
 
-      <nav className="mobile-nav" aria-label="移动端导航">
+      <nav className="mobile-nav" aria-label={t("nav.mobileAria")}>
         {tabs.map((item) => {
           const Icon = item.icon;
           return (
@@ -367,7 +404,7 @@ export function TripWorkspace({
               onClick={() => setTab(item.id)}
             >
               <Icon size={20} />
-              <span>{item.label}</span>
+              <span>{t(item.labelKey)}</span>
             </button>
           );
         })}
@@ -377,7 +414,7 @@ export function TripWorkspace({
           onClick={() => setDialogOpen(true)}
         >
           <Plus size={22} />
-          <span>记一笔</span>
+          <span>{t("workspace.addExpense")}</span>
         </button>
       </nav>
 
@@ -389,7 +426,7 @@ export function TripWorkspace({
           onSaved={async () => {
             setDialogOpen(false);
             await onRefresh();
-            setNotice("支出已记入账本");
+            setNotice(t("notices.expenseSaved"));
           }}
         />
       )}
@@ -423,31 +460,46 @@ function OverviewTab({
   onSettle,
   onDeleteExpense
 }: OverviewTabProps) {
+  const { t, formatMoney } = useI18n();
   const { trip, expenses, balances, settlements, summary } = snapshot;
   const recentExpenses = expenses.slice(0, 5);
   const categoryMax = Math.max(1, ...categoryTotals.map(([, total]) => total));
+  const topCategoryKey = expenseCategoryKey(summary.topCategory);
+  const topCategory =
+    summary.topCategory && summary.topCategory !== "暂无"
+      ? topCategoryKey
+        ? t(topCategoryKey)
+        : summary.topCategory
+      : t("common.noCategory");
 
   return (
     <div className="overview-tab">
       <section className="summary-band">
         <div className="summary-main">
-          <span>共同支出</span>
+          <span>{t("overview.sharedExpenses")}</span>
           <strong>{formatMoney(summary.totalCents, trip.currency)}</strong>
           <p>
-            {summary.expenseCount} 笔支出 · {trip.currency} 记账
+            {t("overview.expenseSummary", {
+              count: summary.expenseCount,
+              currency: trip.currency
+            })}
           </p>
         </div>
         <div className="summary-stat">
-          <span>人均</span>
+          <span>{t("overview.perPerson")}</span>
           <b>{formatMoney(summary.perPersonCents, trip.currency)}</b>
         </div>
         <div className="summary-stat">
-          <span>最大开销</span>
-          <b>{summary.topCategory}</b>
+          <span>{t("overview.topCategory")}</span>
+          <b>{topCategory}</b>
         </div>
         <div className="summary-stat">
-          <span>待结算</span>
-          <b>{settlements.length ? `${settlements.length} 笔` : "已结平"}</b>
+          <span>{t("overview.pendingSettlement")}</span>
+          <b>
+            {settlements.length
+              ? t("common.transferCount", { count: settlements.length })
+              : t("overview.settled")}
+          </b>
         </div>
         <div className="summary-route" aria-hidden="true">
           <span className="route-pin start" />
@@ -461,10 +513,10 @@ function OverviewTab({
           <div className="section-title">
             <div>
               <span>RECENT</span>
-              <h2>最近支出</h2>
+              <h2>{t("overview.recentExpenses")}</h2>
             </div>
             <button type="button" className="text-button" onClick={onShowAll}>
-              全部明细 <ChevronRight size={15} />
+              {t("overview.allDetails")} <ChevronRight size={15} />
             </button>
           </div>
 
@@ -478,7 +530,7 @@ function OverviewTab({
                   payerName={
                     snapshot.members.find(
                       (member) => member.id === expense.paidBy
-                    )?.name ?? "未知"
+                    )?.name ?? t("common.unknown")
                   }
                   onDelete={onDeleteExpense}
                 />
@@ -489,15 +541,15 @@ function OverviewTab({
               <div className="empty-ticket">
                 <ReceiptText size={26} />
               </div>
-              <h3>账本还是空的</h3>
-              <p>第一笔通常从车票或民宿开始。</p>
+              <h3>{t("overview.emptyTitle")}</h3>
+              <p>{t("overview.emptyCopy")}</p>
               <button
                 className="button button-dark"
                 type="button"
                 onClick={onAdd}
               >
                 <Plus size={17} />
-                记第一笔
+                {t("overview.firstExpense")}
               </button>
             </div>
           )}
@@ -507,7 +559,7 @@ function OverviewTab({
           <div className="section-title">
             <div>
               <span>BALANCE</span>
-              <h2>当前平衡</h2>
+              <h2>{t("overview.currentBalance")}</h2>
             </div>
             <TrendingUp size={20} />
           </div>
@@ -555,8 +607,10 @@ function OverviewTab({
           >
             <span>
               {settlements.length > 0
-                ? `${settlements.length} 笔转账即可结平`
-                : "大家已经两清"}
+                ? t("overview.transferSettle", {
+                    count: settlements.length
+                  })
+                : t("overview.allSquared")}
             </span>
             <ChevronRight size={17} />
           </button>
@@ -566,26 +620,29 @@ function OverviewTab({
           <div className="section-title">
             <div>
               <span>BREAKDOWN</span>
-              <h2>花在哪儿</h2>
+              <h2>{t("overview.spendWhere")}</h2>
             </div>
           </div>
           {categoryTotals.length > 0 ? (
             <div className="category-breakdown">
-              {categoryTotals.map(([name, total]) => (
-                <div className="category-row" key={name}>
-                  <CategoryMark category={name} />
-                  <div>
-                    <span>{name}</span>
-                    <div className="category-track">
-                      <i style={{ width: `${(total / categoryMax) * 100}%` }} />
+              {categoryTotals.map(([name, total]) => {
+                const categoryKey = expenseCategoryKey(name);
+                return (
+                  <div className="category-row" key={name}>
+                    <CategoryMark category={name} />
+                    <div>
+                      <span>{categoryKey ? t(categoryKey) : name}</span>
+                      <div className="category-track">
+                        <i style={{ width: `${(total / categoryMax) * 100}%` }} />
+                      </div>
                     </div>
+                    <b>{formatMoney(total, trip.currency)}</b>
                   </div>
-                  <b>{formatMoney(total, trip.currency)}</b>
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
-            <p className="empty-copy">有了支出后，这里会显示分类占比。</p>
+            <p className="empty-copy">{t("overview.emptyCategory")}</p>
           )}
         </section>
       </div>
@@ -606,13 +663,16 @@ function ExpenseRow({
   payerName,
   onDelete
 }: ExpenseRowProps) {
+  const { t, formatDate, formatMoney } = useI18n();
+
   return (
     <article className="expense-row">
       <CategoryMark category={expense.category} />
       <div className="expense-info">
         <h3>{expense.title}</h3>
         <p>
-          {formatDate(expense.date)} · {payerName}垫付
+          {formatDate(expense.date)} ·{" "}
+          {t("expenses.paidBy", { name: payerName })}
           {expense.notes ? ` · ${expense.notes}` : ""}
         </p>
       </div>
@@ -620,15 +680,15 @@ function ExpenseRow({
         <strong>{formatMoney(expense.amountCents, currency)}</strong>
         <span>
           {expense.splitMode === "equal"
-            ? `${expense.shares.length} 人均分`
-            : "指定金额"}
+            ? t("expenses.equalSplit", { count: expense.shares.length })
+            : t("expenses.customSplit")}
         </span>
       </div>
       <button
         className="icon-button delete-button"
         type="button"
-        aria-label={`删除 ${expense.title}`}
-        title="删除支出"
+        aria-label={t("expenses.deleteAria", { title: expense.title })}
+        title={t("expenses.deleteTitle")}
         onClick={() => onDelete(expense)}
       >
         <Trash2 size={16} />
@@ -660,6 +720,7 @@ function ExpensesTab({
   onAdd,
   onDelete
 }: ExpensesTabProps) {
+  const { t, formatMoney } = useI18n();
   const total = expenses.reduce(
     (sum, expense) => sum + expense.amountCents,
     0
@@ -673,23 +734,23 @@ function ExpensesTab({
           <input
             value={query}
             onChange={(event) => onQueryChange(event.target.value)}
-            placeholder="搜索支出..."
+            placeholder={t("expenses.search")}
           />
         </label>
         <div className="category-filter">
           {categories.map((item) => (
             <button
-              key={item}
+              key={item.value}
               type="button"
-              className={category === item ? "active" : ""}
-              onClick={() => onCategoryChange(item)}
+              className={category === item.value ? "active" : ""}
+              onClick={() => onCategoryChange(item.value)}
             >
-              {item}
+              {t(item.labelKey)}
             </button>
           ))}
         </div>
         <div className="filter-total">
-          <span>筛选合计</span>
+          <span>{t("expenses.filterTotal")}</span>
           <b>{formatMoney(total, currency)}</b>
         </div>
       </section>
@@ -698,11 +759,11 @@ function ExpensesTab({
         <div className="section-title expense-table-head">
           <div>
             <span>ALL EXPENSES</span>
-            <h2>{expenses.length} 笔支出</h2>
+              <h2>{t("expenses.allExpenses", { count: expenses.length })}</h2>
           </div>
           <button className="button button-primary" type="button" onClick={onAdd}>
             <Plus size={17} />
-            添加支出
+            {t("expenses.add")}
           </button>
         </div>
 
@@ -713,7 +774,9 @@ function ExpensesTab({
                 key={expense.id}
                 expense={expense}
                 currency={currency}
-                payerName={memberNameById.get(expense.paidBy) ?? "未知"}
+                payerName={
+                  memberNameById.get(expense.paidBy) ?? t("common.unknown")
+                }
                 onDelete={onDelete}
               />
             ))}
@@ -723,8 +786,8 @@ function ExpensesTab({
             <div className="empty-ticket">
               <Search size={26} />
             </div>
-            <h3>没有匹配的支出</h3>
-            <p>换个关键词，或者查看全部分类。</p>
+            <h3>{t("expenses.noMatch")}</h3>
+            <p>{t("expenses.noMatchCopy")}</p>
             <button
               className="button button-dark"
               type="button"
@@ -733,7 +796,7 @@ function ExpensesTab({
                 onCategoryChange("全部");
               }}
             >
-              清除筛选
+              {t("expenses.clearFilters")}
             </button>
           </div>
         )}
@@ -749,6 +812,7 @@ function BalancesTab({
   snapshot: TripSnapshot;
   maxBalance: number;
 }) {
+  const { t, formatMoney } = useI18n();
   const { trip, balances, settlements } = snapshot;
 
   return (
@@ -758,14 +822,14 @@ function BalancesTab({
           <span>SETTLEMENT</span>
           <h2>
             {settlements.length > 0
-              ? "这几笔转完，大家就两清了。"
-              : "目前账目已经结平。"}
+              ? t("balances.boardTitlePending")
+              : t("balances.boardTitleSettled")}
           </h2>
-          <p>按最少笔数计算，不影响每个人的实际消费记录。</p>
+          <p>{t("balances.boardCopy")}</p>
         </div>
         <div className="settlement-count">
           <strong>{settlements.length}</strong>
-          <span>笔待转账</span>
+          <span>{t("balances.pendingTransfers")}</span>
         </div>
       </section>
 
@@ -774,7 +838,7 @@ function BalancesTab({
           <div className="section-title">
             <div>
               <span>PAYMENTS</span>
-              <h2>建议转账</h2>
+              <h2>{t("balances.suggested")}</h2>
             </div>
           </div>
           {settlements.length > 0 ? (
@@ -789,7 +853,7 @@ function BalancesTab({
                       {initials(settlement.fromName)}
                     </span>
                     <div>
-                      <span>付款</span>
+                      <span>{t("balances.pay")}</span>
                       <b>{settlement.fromName}</b>
                     </div>
                   </div>
@@ -802,7 +866,7 @@ function BalancesTab({
                       {initials(settlement.toName)}
                     </span>
                     <div>
-                      <span>收款</span>
+                      <span>{t("balances.receive")}</span>
                       <b>{settlement.toName}</b>
                     </div>
                   </div>
@@ -815,8 +879,8 @@ function BalancesTab({
           ) : (
             <div className="settled-state">
               <Check size={28} />
-              <h3>无需转账</h3>
-              <p>所有人的垫付和分摊刚好平衡。</p>
+              <h3>{t("balances.none")}</h3>
+              <p>{t("balances.noneCopy")}</p>
             </div>
           )}
         </section>
@@ -825,7 +889,7 @@ function BalancesTab({
           <div className="section-title">
             <div>
               <span>NET POSITION</span>
-              <h2>每人净额</h2>
+              <h2>{t("balances.netEach")}</h2>
             </div>
           </div>
           <div className="all-balances">
@@ -843,8 +907,10 @@ function BalancesTab({
                   <div>
                     <b>{balance.name}</b>
                     <span>
-                      垫付 {formatMoney(balance.paidCents, trip.currency)} · 应摊{" "}
-                      {formatMoney(balance.owedCents, trip.currency)}
+                      {t("balances.paidOwed", {
+                        paid: formatMoney(balance.paidCents, trip.currency),
+                        owed: formatMoney(balance.owedCents, trip.currency)
+                      })}
                     </span>
                   </div>
                   <div className="balance-bar">
@@ -894,6 +960,7 @@ function MembersTab({
   onRemove,
   onCopyInvite
 }: MembersTabProps) {
+  const { t, formatMoney } = useI18n();
   const { trip, members, balances } = snapshot;
   const balanceMap = new Map(
     balances.map((balance) => [balance.memberId, balance])
@@ -906,14 +973,14 @@ function MembersTab({
           <span>INVITE CODE</span>
           <strong>{trip.inviteCode}</strong>
         </div>
-        <p>同行的人输入行程码后，会直接进入这个账本。</p>
+        <p>{t("members.intro")}</p>
         <button
           className="button button-light"
           type="button"
           onClick={onCopyInvite}
         >
           <Copy size={17} />
-          复制邀请
+          {t("common.copyInvite")}
         </button>
       </section>
 
@@ -922,7 +989,7 @@ function MembersTab({
           <div className="section-title">
             <div>
               <span>TRAVELERS</span>
-              <h2>{members.length} 位同行成员</h2>
+              <h2>{t("members.travelers", { count: members.length })}</h2>
             </div>
           </div>
           <div className="member-list">
@@ -941,11 +1008,16 @@ function MembersTab({
                   <div className="member-card-copy">
                     <h3>{member.name}</h3>
                     <p>
-                      垫付 {formatMoney(balance?.paidCents ?? 0, trip.currency)}
+                      {t("members.paid", {
+                        amount: formatMoney(
+                          balance?.paidCents ?? 0,
+                          trip.currency
+                        )
+                      })}
                     </p>
                   </div>
                   <div className="member-card-net">
-                    <span>净额</span>
+                    <span>{t("balances.net")}</span>
                     <b
                       className={
                         (balance?.netCents ?? 0) >= 0 ? "positive" : "negative"
@@ -961,8 +1033,10 @@ function MembersTab({
                       <button
                         type="button"
                         className="icon-button delete-button"
-                        title="移除成员"
-                        aria-label={`移除 ${member.name}`}
+                        title={t("members.remove")}
+                        aria-label={t("members.removeAria", {
+                          name: member.name
+                        })}
                         onClick={() => void onRemove(member.id, member.name)}
                       >
                         <Trash2 size={16} />
@@ -978,16 +1052,16 @@ function MembersTab({
           <div className="section-title">
             <div>
               <span>ADD MEMBER</span>
-              <h2>还有谁一起？</h2>
+              <h2>{t("members.addHeading")}</h2>
             </div>
           </div>
           <form onSubmit={(event) => void onSubmit(event)}>
             <label className="field">
-              <span>成员名字</span>
+              <span>{t("members.name")}</span>
               <input
                 value={memberName}
                 onChange={(event) => onMemberNameChange(event.target.value)}
-                placeholder="例如：小林"
+                placeholder={t("members.namePlaceholder")}
                 maxLength={16}
               />
             </label>
@@ -1001,12 +1075,10 @@ function MembersTab({
               ) : (
                 <UserPlus size={18} />
               )}
-              添加成员
+              {t("members.add")}
             </button>
           </form>
-          <p className="member-tip">
-            已经参与支出的成员不能直接移除，避免账目丢失。
-          </p>
+          <p className="member-tip">{t("members.tip")}</p>
         </section>
       </div>
     </div>
