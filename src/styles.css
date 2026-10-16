@@ -990,9 +990,14 @@ a {
 .sidebar-top {
   width: 100%;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px 10px;
+}
+
+.sidebar-top .language-switch {
+  margin-left: auto;
 }
 
 .sidebar-brand .brand-copy small {
