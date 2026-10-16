@@ -3,7 +3,8 @@ import type {
   CreateTripInput,
   Member,
   Trip,
-  TripSnapshot
+  TripSnapshot,
+  VisitStats
 } from "../types";
 import type { Locale, TranslationKey } from "./i18n";
 
@@ -82,6 +83,13 @@ export const api = {
     return request<{ id: string; inviteCode: string }>("/api/demo", {
       method: "POST",
       body: JSON.stringify({ locale })
+    });
+  },
+
+  recordVisit(visitorId: string) {
+    return request<VisitStats>("/api/visits", {
+      method: "POST",
+      body: JSON.stringify({ visitorId })
     });
   },
 

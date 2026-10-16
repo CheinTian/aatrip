@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { LoaderCircle, TriangleAlert } from "lucide-react";
 import { api, getErrorMessage } from "./lib/api";
 import { useI18n } from "./lib/i18n";
+import { recordVisit } from "./lib/visits";
 import type { TripSnapshot } from "./types";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { TripWorkspace } from "./components/TripWorkspace";
@@ -60,6 +61,11 @@ export default function App() {
       void loadTrip(tripId);
     }
   }, [loadTrip, tripId]);
+
+  useEffect(() => {
+    // Count the site visit as soon as the app is opened, whatever the route.
+    void recordVisit().catch(() => {});
+  }, []);
 
   const refresh = useCallback(async () => {
     if (tripId) await loadTrip(tripId, true);

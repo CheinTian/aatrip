@@ -9,6 +9,7 @@
 - 平均分摊和指定金额分摊
 - 自动生成较少笔数的转账结算建议
 - 支出分类统计、成员余额和明细查看
+- 全站访问统计（总访问人数与当日访问人数）
 - 移动端与桌面端响应式界面
 
 ## 技术栈
@@ -39,6 +40,10 @@ npm run deploy
 ```
 
 D1 数据库绑定配置位于 `wrangler.toml`，数据库结构由 `migrations/` 中的迁移文件维护。
+
+## 访问统计
+
+首页通过 `POST /api/visits` 记录一次访问并返回 `{ totalVisitors, todayVisitors, totalViews, todayViews, date }`，其中总访问人数与当日访问人数按匿名访客去重（`GET /api/visits` 只读取不记录）。访客标识是浏览器本地生成的随机 UUID，存在 `localStorage` 的 `aatrip:visitor` 中，服务端不保存 IP 或 User-Agent，日期按 `Asia/Shanghai` 划分。
 
 ## 线上地址
 

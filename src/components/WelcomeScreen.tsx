@@ -15,6 +15,7 @@ import { getErrorMessage } from "../lib/api";
 import { useI18n, type Locale } from "../lib/i18n";
 import type { CreateTripInput } from "../types";
 import { LanguageSwitch } from "./LanguageSwitch";
+import { VisitStats } from "./VisitStats";
 
 interface WelcomeScreenProps {
   onOpenTrip: (id: string) => void;
@@ -453,9 +454,12 @@ export function WelcomeScreen({
       </div>
 
       <footer className="welcome-footer">
-        <span>AA</span>
-        <p>{t("welcome.footer")}</p>
-        <span>2026</span>
+        <div className="welcome-footer-line">
+          <span>AA</span>
+          <p>{t("welcome.footer")}</p>
+          <span>2026</span>
+        </div>
+        <VisitStats />
       </footer>
     </main>
   );

@@ -90,3 +90,16 @@ export interface CreateExpenseInput {
   participants: string[];
   customShares: ExpenseShare[];
 }
+
+export interface VisitStats {
+  /** Distinct visitors since launch. */
+  totalVisitors: number;
+  /** Distinct visitors on the current day (Asia/Shanghai). */
+  todayVisitors: number;
+  /** Total page views, including repeat visits from the same visitor. */
+  totalViews: number;
+  /** Page views on the current day (Asia/Shanghai). */
+  todayViews: number;
+  /** The day the counters were computed for, as YYYY-MM-DD. */
+  date: string;
+}

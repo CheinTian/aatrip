@@ -8,7 +8,8 @@ import type {
   Settlement,
   SplitMode,
   Trip,
-  TripSnapshot
+  TripSnapshot,
+  VisitStats
 } from "../src/types";
 
 interface Env {
@@ -52,6 +53,19 @@ interface ShareRow {
   member_id: string;
   amount_cents: number;
 }
+
+interface VisitRow {
+  total_visitors: number;
+  today_visitors: number;
+  total_views: number;
+  today_views: number;
+}
+
+// The ledger is built for travelers from mainland China, so "today" follows
+// Asia/Shanghai (UTC+8, no daylight saving) instead of the UTC clock.
+const VISIT_DAY_OFFSET_MS = 8 * 60 * 60 * 1000;
+const VISITOR_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const COLORS = [
   "#F05A36",
@@ -136,6 +150,10 @@ function inviteCode() {
 
 function cleanText(value: unknown, maxLength: number) {
   return typeof value === "string" ? value.trim().slice(0, maxLength) : "";
+}
+
+function visitDay(now = Date.now()) {
+  return new Date(now + VISIT_DAY_OFFSET_MS).toISOString().slice(0, 10);
 }
 
 function validDate(value: unknown) {
@@ -596,6 +614,59 @@ async function createDemo(db: D1Database, locale = "zh-CN") {
   return trip;
 }
 
+function statsStatement(db: D1Database, date: string) {
+  return db
+    .prepare(
+      `SELECT
+         (SELECT COUNT(DISTINCT visitor_id) FROM visits) AS total_visitors,
+         (SELECT COUNT(*) FROM visits WHERE visit_date = ?) AS today_visitors,
+         (SELECT COALESCE(SUM(view_count), 0) FROM visits) AS total_views,
+         (SELECT COALESCE(SUM(view_count), 0) FROM visits WHERE visit_date = ?) AS today_views`
+    )
+    .bind(date, date);
+}
+
+function toVisitStats(row: VisitRow | null, date: string): VisitStats {
+  return {
+    totalVisitors: Number(row?.total_visitors ?? 0),
+    todayVisitors: Number(row?.today_visitors ?? 0),
+    totalViews: Number(row?.total_views ?? 0),
+    todayViews: Number(row?.today_views ?? 0),
+    date
+  };
+}
+
+async function readVisitStats(db: D1Database, date: string) {
+  const row = await statsStatement(db, date).first<VisitRow>();
+  return toVisitStats(row, date);
+}
+
+async function recordVisit(
+  db: D1Database,
+  visitorId: string,
+  date: string
+) {
+  const now = new Date().toISOString();
+  // The upsert and the stats read run as one batch so the response always
+  // reflects the visit that was just recorded.
+  const [, statsResult] = await db.batch([
+    db
+      .prepare(
+        `INSERT INTO visits
+         (visitor_id, visit_date, first_seen_at, last_seen_at, view_count)
+         VALUES (?1, ?2, ?3, ?3, 1)
+         ON CONFLICT(visitor_id, visit_date) DO UPDATE SET
+           last_seen_at = excluded.last_seen_at,
+           view_count = visits.view_count + 1`
+      )
+      .bind(visitorId, date, now),
+    statsStatement(db, date)
+  ]);
+
+  const row = (statsResult.results?.[0] ?? null) as unknown as VisitRow | null;
+  return toVisitStats(row, date);
+}
+
 async function handleApi(request: Request, env: Env) {
   const url = new URL(request.url);
   const path = url.pathname;
@@ -614,6 +685,38 @@ async function handleApi(request: Request, env: Env) {
 
   if (path === "/api/health" && method === "GET") {
     return json({ ok: true, service: "aatrip" });
+  }
+
+  if (path === "/api/visits") {
+    const date = visitDay();
+
+    if (method === "GET") {
+      try {
+        return json(await readVisitStats(env.DB, date));
+      } catch {
+        return error("读取访问统计失败", 500, "visits_unavailable");
+      }
+    }
+
+    if (method === "POST") {
+      let body: { visitorId?: string };
+      try {
+        body = (await request.json()) as { visitorId?: string };
+      } catch {
+        return error("请求格式不正确", 400, "invalid_body");
+      }
+
+      const visitorId = cleanText(body.visitorId, 64);
+      if (!VISITOR_ID_PATTERN.test(visitorId)) {
+        return error("访客标识无效", 400, "invalid_visitor_id");
+      }
+
+      try {
+        return json(await recordVisit(env.DB, visitorId.toLowerCase(), date));
+      } catch (cause) {
+        return errorFrom(cause, "记录访问失败", "visit_record_failed", 500);
+      }
+    }
   }
 
   if (path === "/api/demo" && method === "POST") {
