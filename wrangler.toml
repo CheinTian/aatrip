@@ -1,0 +1,17 @@
+name = "aatrip"
+main = "worker/index.ts"
+compatibility_date = "2026-10-15"
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = ["/api/*"]
+
+[observability]
+enabled = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "aatrip-db"
+database_id = "ccda43c6-7546-4067-9c7d-5c1ac917d41c"
