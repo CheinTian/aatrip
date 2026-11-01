@@ -42,3 +42,4 @@ iOS 端沿用 Web 端的“随身旅行账簿”视觉语言：
 - 系统衬线字体承担品牌标题，SF Pro 承担界面，等宽字体承担金额与行程码
 - 原生 `NavigationStack`、`TabView`、`Form`、`List`、`ShareLink`、滑动删除、系统分享与触感反馈
 - 完整支持深色模式、Dynamic Type 与 Reduce Motion
+- 外屏、内屏横竖屏与半折姿态按可用宽度响应；内屏欢迎页与账本使用双栏，大字号下自动恢复单列并纵向重排操作与结算信息

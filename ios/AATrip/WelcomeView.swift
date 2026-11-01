@@ -6,6 +6,8 @@ struct WelcomeView: View {
     }
 
     @Environment(AppModel.self) private var model
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @ScaledMetric(relativeTo: .largeTitle) private var heroSize: CGFloat = 48
     @State private var showsCreate = false
     @State private var showsJoin = false
@@ -15,48 +17,31 @@ struct WelcomeView: View {
     private var language: AppLanguage { model.language }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-                header
-                    .padding(.top, 8)
+        GeometryReader { proxy in
+            let isWide = usesWideLayout(width: proxy.size.width)
+            let sideColumnWidth = min(430, max(370, proxy.size.width * 0.43))
 
-                story
-                    .padding(.top, 34)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    header
+                        .padding(.top, 8)
 
-                routeCard
-                    .padding(.top, 28)
-
-                benefitRow
-                    .padding(.top, 18)
-
-                actions
-                    .padding(.top, 28)
-
-                if let lastTripId = model.lastTripId {
-                    Button {
-                        Task { await model.openTrip(lastTripId) }
-                    } label: {
-                        HStack(spacing: 7) {
-                            Image(systemName: "arrow.uturn.backward")
-                            Text(language.text("继续上次行程", "Resume last trip"))
-                        }
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color.ledgerSecondary)
+                    if isWide {
+                        wideLayout(sideColumnWidth: sideColumnWidth)
+                    } else {
+                        compactLayout
                     }
-                    .buttonStyle(PressableButtonStyle())
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 18)
-                }
 
-                footer
-                    .padding(.top, 42)
-                    .padding(.bottom, 20)
+                    footer
+                        .padding(.top, isWide ? 30 : 42)
+                        .padding(.bottom, 20)
+                }
+                .padding(.horizontal, isWide ? 34 : 22)
+                .frame(maxWidth: isWide ? 1_180 : 720)
+                .frame(maxWidth: .infinity)
             }
-            .padding(.horizontal, 22)
-            .frame(maxWidth: 720)
-            .frame(maxWidth: .infinity)
+            .background(LedgerBackground())
         }
-        .background(LedgerBackground())
         .sheet(isPresented: $showsCreate) {
             CreateTripSheet(language: language)
                 .environment(model)
@@ -85,6 +70,54 @@ struct WelcomeView: View {
             }
             #endif
         }
+    }
+
+    private func usesWideLayout(width: CGFloat) -> Bool {
+        horizontalSizeClass == .regular
+            && width >= 860
+            && !dynamicTypeSize.isAccessibilitySize
+    }
+
+    private var compactLayout: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            story
+                .padding(.top, 34)
+
+            routeCard
+                .padding(.top, 28)
+
+            benefitRow
+                .padding(.top, 18)
+
+            actions
+                .padding(.top, 28)
+
+            resumeButton
+                .padding(.top, 18)
+        }
+    }
+
+    private func wideLayout(sideColumnWidth: CGFloat) -> some View {
+        HStack(alignment: .top, spacing: 48) {
+            story
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+                .layoutPriority(1)
+
+            VStack(alignment: .leading, spacing: 0) {
+                routeCard
+
+                benefitRow
+                    .padding(.top, 16)
+
+                actions
+                    .padding(.top, 24)
+
+                resumeButton
+                    .padding(.top, 16)
+            }
+            .frame(width: sideColumnWidth, alignment: .leading)
+        }
+        .padding(.top, 30)
     }
 
     private var header: some View {
@@ -206,15 +239,25 @@ struct WelcomeView: View {
     }
 
     private var benefitRow: some View {
-        HStack(spacing: 0) {
-            benefit("equal.circle", language.text("自动结算", "Auto settle"))
-            Spacer()
-            benefit("person.2.fill", language.text("多人共享", "Shared"))
-            Spacer()
-            benefit("list.bullet.rectangle", language.text("每日明细", "Daily detail"))
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 12) {
+                    benefit("equal.circle", language.text("自动结算", "Auto settle"))
+                    benefit("person.2.fill", language.text("多人共享", "Shared"))
+                    benefit("list.bullet.rectangle", language.text("每日明细", "Daily detail"))
+                }
+            } else {
+                HStack(spacing: 0) {
+                    benefit("equal.circle", language.text("自动结算", "Auto settle"))
+                    Spacer()
+                    benefit("person.2.fill", language.text("多人共享", "Shared"))
+                    Spacer()
+                    benefit("list.bullet.rectangle", language.text("每日明细", "Daily detail"))
+                }
+                .padding(.horizontal, 4)
+            }
         }
         .foregroundStyle(Color.ledgerSecondary)
-        .padding(.horizontal, 4)
     }
 
     private func benefit(_ symbol: String, _ title: String) -> some View {
@@ -233,65 +276,117 @@ struct WelcomeView: View {
             .buttonStyle(PrimaryActionStyle())
             .disabled(busyAction != nil || model.isWorking)
 
-            HStack(spacing: 10) {
-                Button {
-                    showsJoin = true
-                } label: {
-                    Label(language.text("输入行程码", "Join with code"), systemImage: "number")
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(spacing: 10) {
+                    joinButton
+                    sampleButton
                 }
-                .buttonStyle(SecondaryActionStyle())
-
-                Button {
-                    runDemo()
-                } label: {
-                    Group {
-                        if busyAction == .demo {
-                            ProgressView()
-                                .tint(Color.ledgerInk)
-                        } else {
-                            Label(language.text("看看示例", "Try sample"), systemImage: "sparkles")
-                        }
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 50)
+            } else {
+                HStack(spacing: 10) {
+                    joinButton
+                    sampleButton
                 }
-                .buttonStyle(SecondaryActionStyle())
-                .disabled(busyAction != nil || model.isWorking)
             }
         }
     }
 
-    private var footer: some View {
-        VStack(spacing: 12) {
-            Rectangle()
-                .fill(Color.ledgerLine)
-                .frame(height: 1)
+    private var joinButton: some View {
+        Button {
+            showsJoin = true
+        } label: {
+            Label(language.text("输入行程码", "Join with code"), systemImage: "number")
+        }
+        .buttonStyle(SecondaryActionStyle())
+    }
 
-            HStack(spacing: 16) {
-                Text("AA")
-                    .font(.system(.caption, design: .monospaced).weight(.medium))
-                Text(language.text("旅行一起走，账单也一起算。", "Travel together. Settle together."))
-                    .font(.caption)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Text("2026")
-                    .font(.system(.caption2, design: .monospaced))
-            }
-            .foregroundStyle(Color.ledgerSecondary)
-
-            if let stats = model.visitStats {
-                HStack(spacing: 18) {
-                    Label(
-                        "\(language.text("总访问", "Visitors")) \(stats.totalVisitors)",
-                        systemImage: "person.2"
-                    )
-                    Label(
-                        "\(language.text("今日", "Today")) \(stats.todayVisitors)",
-                        systemImage: "calendar"
-                    )
+    private var sampleButton: some View {
+        Button {
+            runDemo()
+        } label: {
+            Group {
+                if busyAction == .demo {
+                    ProgressView()
+                        .tint(Color.ledgerInk)
+                } else {
+                    Label(language.text("看看示例", "Try sample"), systemImage: "sparkles")
                 }
-                .font(.caption2)
-                .foregroundStyle(Color.ledgerSecondary)
-                .frame(maxWidth: .infinity, alignment: .trailing)
             }
+            .frame(maxWidth: .infinity, minHeight: 50)
+        }
+        .buttonStyle(SecondaryActionStyle())
+        .disabled(busyAction != nil || model.isWorking)
+    }
+
+    @ViewBuilder
+    private var resumeButton: some View {
+        if let lastTripId = model.lastTripId {
+            Button {
+                Task { await model.openTrip(lastTripId) }
+            } label: {
+                HStack(spacing: 7) {
+                    Image(systemName: "arrow.uturn.backward")
+                    Text(language.text("继续上次行程", "Resume last trip"))
+                }
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.ledgerSecondary)
+            }
+            .buttonStyle(PressableButtonStyle())
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    private var footer: some View {
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(alignment: .leading, spacing: 14) {
+                    footerRule
+                    Text(language.text("旅行一起走，账单也一起算。", "Travel together. Settle together."))
+                        .font(.caption)
+                    visitStats
+                }
+            } else {
+                VStack(spacing: 12) {
+                    footerRule
+
+                    HStack(spacing: 16) {
+                        Text("AA")
+                            .font(.system(.caption, design: .monospaced).weight(.medium))
+                        Text(language.text("旅行一起走，账单也一起算。", "Travel together. Settle together."))
+                            .font(.caption)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Text("2026")
+                            .font(.system(.caption2, design: .monospaced))
+                    }
+                    .foregroundStyle(Color.ledgerSecondary)
+
+                    visitStats
+                }
+            }
+        }
+        .foregroundStyle(Color.ledgerSecondary)
+    }
+
+    private var footerRule: some View {
+        Rectangle()
+            .fill(Color.ledgerLine)
+            .frame(height: 1)
+    }
+
+    @ViewBuilder
+    private var visitStats: some View {
+        if let stats = model.visitStats {
+            HStack(spacing: 18) {
+                Label(
+                    "\(language.text("总访问", "Visitors")) \(stats.totalVisitors)",
+                    systemImage: "person.2"
+                )
+                Label(
+                    "\(language.text("今日", "Today")) \(stats.todayVisitors)",
+                    systemImage: "calendar"
+                )
+            }
+            .font(.caption2)
+            .frame(maxWidth: .infinity, alignment: .trailing)
         }
     }
 

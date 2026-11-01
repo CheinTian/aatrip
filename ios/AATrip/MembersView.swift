@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MembersView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     let snapshot: TripSnapshot
 
@@ -12,6 +13,7 @@ struct MembersView: View {
 
     private var language: AppLanguage { model.language }
     private var trip: Trip { snapshot.trip }
+    private var usesAccessibilityLayout: Bool { dynamicTypeSize.isAccessibilitySize }
 
     private var balanceById: [String: MemberBalance] {
         Dictionary(uniqueKeysWithValues: snapshot.balances.map { ($0.memberId, $0) })
@@ -85,42 +87,7 @@ struct MembersView: View {
                     .foregroundStyle(.white.opacity(0.84))
             }
 
-            HStack(spacing: 10) {
-                Text(trip.inviteCode)
-                    .font(.system(.title, design: .monospaced).weight(.medium))
-                    .tracking(3)
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-
-                Spacer()
-
-                Button {
-                    UIPasteboard.general.string = trip.inviteCode
-                    model.showToast(language.text("行程码已复制", "Trip code copied"))
-                } label: {
-                    Label(language.text("复制", "Copy"), systemImage: "doc.on.doc")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color.ledgerOrange)
-                        .padding(.horizontal, 12)
-                        .frame(minHeight: 36)
-                        .background(.white)
-                        .clipShape(Capsule())
-                }
-                .buttonStyle(PressableButtonStyle())
-
-                ShareLink(
-                    item: TripSharing.inviteText(trip, language: language)
-                ) {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 38, height: 38)
-                        .background(.white.opacity(0.16))
-                        .clipShape(Circle())
-                }
-                .accessibilityLabel(language.text("分享邀请", "Share invite"))
-            }
+            inviteCodeRow
         }
         .padding(20)
         .background(Color.ledgerOrange)
@@ -131,6 +98,67 @@ struct MembersView: View {
                 .frame(width: 160, height: 160)
                 .offset(x: 60, y: -54)
         }
+    }
+
+    @ViewBuilder
+    private var inviteCodeRow: some View {
+        if usesAccessibilityLayout {
+            VStack(alignment: .leading, spacing: 12) {
+                inviteCode
+
+                HStack(spacing: 10) {
+                    copyInviteButton
+                    shareInviteButton
+                    Spacer(minLength: 0)
+                }
+            }
+        } else {
+            HStack(spacing: 10) {
+                inviteCode
+                Spacer(minLength: 10)
+                copyInviteButton
+                shareInviteButton
+            }
+        }
+    }
+
+    private var inviteCode: some View {
+        Text(trip.inviteCode)
+            .font(.system(.title, design: .monospaced).weight(.medium))
+            .tracking(3)
+            .foregroundStyle(.white)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+    }
+
+    private var copyInviteButton: some View {
+        Button {
+            UIPasteboard.general.string = trip.inviteCode
+            model.showToast(language.text("行程码已复制", "Trip code copied"))
+        } label: {
+            Label(language.text("复制", "Copy"), systemImage: "doc.on.doc")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.ledgerOrange)
+                .padding(.horizontal, 12)
+                .frame(minHeight: 44)
+                .background(.white)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(PressableButtonStyle())
+    }
+
+    private var shareInviteButton: some View {
+        ShareLink(
+            item: TripSharing.inviteText(trip, language: language)
+        ) {
+            Image(systemName: "square.and.arrow.up")
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.white)
+                .frame(width: 44, height: 44)
+                .background(.white.opacity(0.16))
+                .clipShape(Circle())
+        }
+        .accessibilityLabel(language.text("分享邀请", "Share invite"))
     }
 
     private var memberCard: some View {
@@ -157,57 +185,93 @@ struct MembersView: View {
         let balance = balanceById[member.id]
         let canDelete = (balance?.paidCents ?? 0) == 0 && (balance?.owedCents ?? 0) == 0
 
-        return HStack(spacing: 12) {
-            AvatarView(name: member.name, color: member.color, size: 42)
+        return Group {
+            if usesAccessibilityLayout {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .top, spacing: 12) {
+                        AvatarView(name: member.name, color: member.color, size: 42)
+                        memberIdentity(member, balance: balance)
+                        Spacer(minLength: 8)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text(member.name)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.ledgerInk)
-                Text(
-                    language.text(
-                        "垫付 \(Money.string(cents: balance?.paidCents ?? 0, currency: trip.currency, language: language))",
-                        "Paid \(Money.string(cents: balance?.paidCents ?? 0, currency: trip.currency, language: language))"
-                    )
-                )
-                .font(.caption)
-                .foregroundStyle(Color.ledgerSecondary)
-            }
-
-            Spacer()
-
-            VStack(alignment: .trailing, spacing: 3) {
-                Text(language.text("净额", "Net"))
-                    .font(.caption2)
-                    .foregroundStyle(Color.ledgerSecondary)
-                Text(
-                    Money.string(
-                        cents: balance?.netCents ?? 0,
-                        currency: trip.currency,
-                        language: language,
-                        signed: true
-                    )
-                )
-                .font(.system(.caption, design: .monospaced).weight(.semibold))
-                .foregroundStyle((balance?.netCents ?? 0) >= 0 ? Color.ledgerTeal : Color.ledgerRed)
-            }
-
-            if canDelete {
-                Menu {
-                    Button(role: .destructive) {
-                        memberToRemove = member
-                    } label: {
-                        Label(language.text("移除成员", "Remove traveler"), systemImage: "person.badge.minus")
+                        if canDelete {
+                            memberMenu(member)
+                        }
                     }
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .foregroundStyle(Color.ledgerSecondary)
-                        .frame(width: 36, height: 44)
+
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        Text(language.text("净额", "Net"))
+                            .font(.caption)
+                            .foregroundStyle(Color.ledgerSecondary)
+                        Spacer(minLength: 12)
+                        memberNetValue(balance)
+                    }
                 }
-                .accessibilityLabel(language.text("成员菜单", "Traveler menu"))
+            } else {
+                HStack(spacing: 12) {
+                    AvatarView(name: member.name, color: member.color, size: 42)
+                    memberIdentity(member, balance: balance)
+                    Spacer(minLength: 12)
+
+                    VStack(alignment: .trailing, spacing: 3) {
+                        Text(language.text("净额", "Net"))
+                            .font(.caption2)
+                            .foregroundStyle(Color.ledgerSecondary)
+                        memberNetValue(balance)
+                    }
+
+                    if canDelete {
+                        memberMenu(member)
+                    }
+                }
             }
         }
         .padding(.vertical, 11)
+    }
+
+    private func memberIdentity(_ member: Member, balance: MemberBalance?) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(member.name)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.ledgerInk)
+            Text(
+                language.text(
+                    "垫付 \(Money.string(cents: balance?.paidCents ?? 0, currency: trip.currency, language: language))",
+                    "Paid \(Money.string(cents: balance?.paidCents ?? 0, currency: trip.currency, language: language))"
+                )
+            )
+            .font(.caption)
+            .foregroundStyle(Color.ledgerSecondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func memberNetValue(_ balance: MemberBalance?) -> some View {
+        Text(
+            Money.string(
+                cents: balance?.netCents ?? 0,
+                currency: trip.currency,
+                language: language,
+                signed: true
+            )
+        )
+        .font(.system(.caption, design: .monospaced).weight(.semibold))
+        .foregroundStyle((balance?.netCents ?? 0) >= 0 ? Color.ledgerTeal : Color.ledgerRed)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func memberMenu(_ member: Member) -> some View {
+        Menu {
+            Button(role: .destructive) {
+                memberToRemove = member
+            } label: {
+                Label(language.text("移除成员", "Remove traveler"), systemImage: "person.badge.minus")
+            }
+        } label: {
+            Image(systemName: "ellipsis")
+                .foregroundStyle(Color.ledgerSecondary)
+                .frame(width: 44, height: 44)
+        }
+        .accessibilityLabel(language.text("成员菜单", "Traveler menu"))
     }
 
     private var addMemberCard: some View {

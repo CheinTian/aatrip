@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DashboardView: View {
     @Environment(AppModel.self) private var model
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     let snapshot: TripSnapshot
@@ -29,7 +30,7 @@ struct DashboardView: View {
 
                 settlementStrip
 
-                if horizontalSizeClass == .regular {
+                if usesTwoColumns {
                     HStack(alignment: .top, spacing: 18) {
                         categoryCard
                             .frame(maxWidth: .infinity, alignment: .top)
@@ -53,6 +54,10 @@ struct DashboardView: View {
         .refreshable {
             await model.refresh()
         }
+    }
+
+    private var usesTwoColumns: Bool {
+        horizontalSizeClass == .regular && !dynamicTypeSize.isAccessibilitySize
     }
 
     @ViewBuilder
