@@ -273,7 +273,9 @@ private struct SettlementRow: View {
 
     private var shareButton: some View {
         ShareLink(
-            item: TripSharing.settlementText(settlement, trip: trip, language: language)
+            item: TripSharing.tripURL(trip),
+            subject: Text(language.text("AA簿结算提醒", "AA Ledger payment reminder")),
+            message: Text(TripSharing.settlementText(settlement, trip: trip, language: language))
         ) {
             Image(systemName: "square.and.arrow.up")
                 .font(.body.weight(.semibold))

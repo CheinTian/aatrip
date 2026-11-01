@@ -149,7 +149,9 @@ struct MembersView: View {
 
     private var shareInviteButton: some View {
         ShareLink(
-            item: TripSharing.inviteText(trip, language: language)
+            item: TripSharing.tripURL(trip),
+            subject: Text(language.text("AA簿邀请", "AA Ledger invite")),
+            message: Text(TripSharing.inviteMessage(trip, language: language))
         ) {
             Image(systemName: "square.and.arrow.up")
                 .font(.body.weight(.semibold))

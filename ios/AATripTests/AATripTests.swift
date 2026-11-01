@@ -62,4 +62,26 @@ final class AATripTests: XCTestCase {
             "The individual amounts must add up to the total"
         )
     }
+
+    func testTripSharingUsesURLAndKeepsInviteDetailsInMessage() {
+        let trip = Trip(
+            id: "trip-1",
+            name: "云南七日慢旅行",
+            destination: "大理 · 丽江",
+            startDate: "2026-10-18",
+            endDate: "2026-10-24",
+            currency: "CNY",
+            inviteCode: "7H63M7",
+            createdAt: "2026-11-01T06:55:12.274Z"
+        )
+
+        XCTAssertEqual(
+            TripSharing.tripURL(trip).absoluteString,
+            "https://aatrip.chein0813843.workers.dev/#/trip/trip-1"
+        )
+        XCTAssertEqual(
+            TripSharing.inviteMessage(trip, language: .zhHans),
+            "AA簿邀请：云南七日慢旅行\n行程码：7H63M7"
+        )
+    }
 }

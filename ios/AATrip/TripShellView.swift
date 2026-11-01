@@ -130,7 +130,9 @@ private struct TripToolbarModifier: ViewModifier {
                         }
 
                         ShareLink(
-                            item: TripSharing.inviteText(snapshot.trip, language: language)
+                            item: TripSharing.tripURL(snapshot.trip),
+                            subject: Text(language.text("AA簿邀请", "AA Ledger invite")),
+                            message: Text(TripSharing.inviteMessage(snapshot.trip, language: language))
                         ) {
                             Label(language.text("分享邀请", "Share invite"), systemImage: "square.and.arrow.up")
                         }
@@ -159,11 +161,14 @@ extension View {
 }
 
 enum TripSharing {
-    static func inviteText(_ trip: Trip, language: AppLanguage) -> String {
-        let link = "https://aatrip.chein0813843.workers.dev/#/trip/\(trip.id)"
-        return language.text(
-            "AA簿邀请：\(trip.name)\n行程码：\(trip.inviteCode)\n链接：\(link)",
-            "AA Ledger invite: \(trip.name)\nTrip code: \(trip.inviteCode)\nLink: \(link)"
+    static func tripURL(_ trip: Trip) -> URL {
+        URL(string: "https://aatrip.chein0813843.workers.dev/#/trip/\(trip.id)")!
+    }
+
+    static func inviteMessage(_ trip: Trip, language: AppLanguage) -> String {
+        language.text(
+            "AA簿邀请：\(trip.name)\n行程码：\(trip.inviteCode)",
+            "AA Ledger invite: \(trip.name)\nTrip code: \(trip.inviteCode)"
         )
     }
 
