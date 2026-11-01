@@ -53,7 +53,7 @@
 		B0D81054E3E58D715C6B7BDF /* AATripTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AATripTests.swift; sourceTree = "<group>"; };
 		B5525B5909D26BDD4EB9AF49 /* AATripApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AATripApp.swift; sourceTree = "<group>"; };
 		CA054CD51C1DDCA7721646FC /* WelcomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WelcomeView.swift; sourceTree = "<group>"; };
-		D3C632E39E7D13D477228AF4 /* AATrip.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = AATrip.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D3C632E39E7D13D477228AF4 /* AATrip.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AATrip.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D66AD211B500BE94EB5980AF /* AATripTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = AATripTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		D6BC048AB3607DFEC4C82FF9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		EF8F899DDD7D6DEB7F720BEB /* SettlementsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettlementsView.swift; sourceTree = "<group>"; };
@@ -174,7 +174,6 @@
 						ProvisioningStyle = Automatic;
 					};
 					EB78934C32672835F5C4D22F = {
-						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -327,7 +326,8 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_IDENTITY = "Apple Development";
+				DEVELOPMENT_TEAM = XF744QU756;
 				INFOPLIST_FILE = AATrip/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -337,6 +337,10 @@
 				PRODUCT_MODULE_NAME = AATrip;
 				PRODUCT_NAME = AATrip;
 				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -363,7 +367,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_IDENTITY = "Apple Distribution";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = XF744QU756;
 				INFOPLIST_FILE = AATrip/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -372,7 +378,12 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.chein.aatrip;
 				PRODUCT_MODULE_NAME = AATrip;
 				PRODUCT_NAME = AATrip;
+				PROVISIONING_PROFILE_SPECIFIER = "aatrip profile";
 				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD = NO;
+				SUPPORTS_XR_DESIGNED_FOR_IPHONE_IPAD = NO;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
