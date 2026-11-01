@@ -3,3 +3,6 @@ dist/
 .wrangler/
 .DS_Store
 *.log
+ios/.derivedData/
+*.xcuserstate
+xcuserdata/

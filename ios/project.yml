@@ -1,0 +1,46 @@
+name: AATrip
+options:
+  bundleIdPrefix: com.chein
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_TEAM: ""
+    CODE_SIGN_STYLE: Automatic
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: NO
+targets:
+  AATrip:
+    type: application
+    platform: iOS
+    sources:
+      - path: AATrip
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.chein.aatrip
+        PRODUCT_NAME: AATrip
+        PRODUCT_MODULE_NAME: AATrip
+        INFOPLIST_FILE: AATrip/Resources/Info.plist
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "1,2"
+    scheme:
+      testTargets:
+        - AATripTests
+      gatherCoverageData: true
+  AATripTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: AATripTests
+    dependencies:
+      - target: AATrip
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.chein.aatrip.tests
+        GENERATE_INFOPLIST_FILE: YES

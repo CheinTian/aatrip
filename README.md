@@ -48,3 +48,7 @@ D1 数据库绑定配置位于 `wrangler.toml`，数据库结构由 `migrations/
 ## 线上地址
 
 https://aatrip.chein0813843.workers.dev
+
+## iOS 客户端
+
+原生 SwiftUI 客户端位于 [`ios/`](ios/)，与 Web 端共用同一套 Worker + D1 API。运行与构建说明见 [`ios/README.md`](ios/README.md)。
