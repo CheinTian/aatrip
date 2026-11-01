@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .wrangler/
+.asc/
 .DS_Store
 *.log
 ios/.derivedData/
