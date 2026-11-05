@@ -103,3 +103,39 @@ export interface VisitStats {
   /** The day the counters were computed for, as YYYY-MM-DD. */
   date: string;
 }
+
+export type AuthProvider = "google" | "github";
+
+export interface AuthProviders {
+  google: boolean;
+  github: boolean;
+}
+
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl: string;
+  providers: AuthProvider[];
+}
+
+export interface AuthSession {
+  user: AuthUser | null;
+  providers: AuthProviders;
+}
+
+export interface UserTrip {
+  id: string;
+  name: string;
+  destination: string;
+  startDate: string;
+  endDate: string;
+  currency: string;
+  inviteCode: string;
+  role: "owner" | "member";
+  joinedAt: string;
+  memberCount: number;
+  expenseCount: number;
+  totalCents: number;
+  lastActivityAt: string;
+}

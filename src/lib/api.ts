@@ -1,9 +1,11 @@
 import type {
+  AuthSession,
   CreateExpenseInput,
   CreateTripInput,
   Member,
   Trip,
   TripSnapshot,
+  UserTrip,
   VisitStats
 } from "../types";
 import type { Locale, TranslationKey } from "./i18n";
@@ -42,6 +44,7 @@ export function getErrorMessage(
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(path, {
     ...options,
+    credentials: "same-origin",
     headers: {
       "Content-Type": "application/json",
       ...options.headers
@@ -61,6 +64,25 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
+  getSession() {
+    return request<AuthSession>("/api/auth/session");
+  },
+
+  logout() {
+    return request<{ ok: true }>("/api/auth/logout", { method: "POST" });
+  },
+
+  getMyTrips() {
+    return request<{ trips: UserTrip[] }>("/api/me/trips");
+  },
+
+  leaveTrip(tripId: string) {
+    return request<{ ok: true }>(
+      `/api/me/trips/${encodeURIComponent(tripId)}`,
+      { method: "DELETE" }
+    );
+  },
+
   getTrip(id: string) {
     return request<TripSnapshot>(`/api/trips/${encodeURIComponent(id)}`);
   },

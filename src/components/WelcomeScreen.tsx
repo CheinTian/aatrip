@@ -9,11 +9,13 @@ import {
   Plus,
   Route,
   Sparkles,
+  UserRound,
   Users
 } from "lucide-react";
 import { getErrorMessage } from "../lib/api";
 import { useI18n, type Locale } from "../lib/i18n";
-import type { CreateTripInput } from "../types";
+import type { AuthUser, CreateTripInput } from "../types";
+import { AccountMenu } from "./AccountMenu";
 import { LanguageSwitch } from "./LanguageSwitch";
 import { VisitStats } from "./VisitStats";
 
@@ -24,6 +26,11 @@ interface WelcomeScreenProps {
   ) => Promise<{ id: string; inviteCode: string }>;
   onJoinTrip: (code: string) => Promise<{ id: string }>;
   onCreateDemo: (locale: Locale) => Promise<{ id: string; inviteCode: string }>;
+  user: AuthUser | null;
+  initialMode?: "create" | "join";
+  onLogin: () => void;
+  onOpenTrips: () => void;
+  onSignOut: () => void | Promise<void>;
 }
 
 const currencies = [
@@ -49,21 +56,27 @@ export function WelcomeScreen({
   onOpenTrip,
   onCreateTrip,
   onJoinTrip,
-  onCreateDemo
+  onCreateDemo,
+  user,
+  initialMode = "create",
+  onLogin,
+  onOpenTrips,
+  onSignOut
 }: WelcomeScreenProps) {
   const { locale, t } = useI18n();
-  const [mode, setMode] = useState<"create" | "join">("create");
+  const defaultMemberName = user?.name || t("welcome.defaultMember");
+  const [mode, setMode] = useState<"create" | "join">(initialMode);
   const [form, setForm] = useState<CreateTripInput>(() => ({
     ...emptyTrip,
-    members: [t("welcome.defaultMember")]
+    members: [defaultMemberName]
   }));
   const [joinCode, setJoinCode] = useState("");
   const [busy, setBusy] = useState<"create" | "join" | "demo" | "">("");
   const [error, setError] = useState("");
-  const previousDefaultMember = useRef(t("welcome.defaultMember"));
+  const previousDefaultMember = useRef(defaultMemberName);
 
   useEffect(() => {
-    const nextDefaultMember = t("welcome.defaultMember");
+    const nextDefaultMember = user?.name || t("welcome.defaultMember");
     setForm((current) => ({
       ...current,
       members:
@@ -74,7 +87,12 @@ export function WelcomeScreen({
     }));
     previousDefaultMember.current = nextDefaultMember;
     setError("");
-  }, [locale, t]);
+  }, [locale, t, user]);
+
+  useEffect(() => {
+    setMode(initialMode);
+    setError("");
+  }, [initialMode]);
 
   function update<K extends keyof CreateTripInput>(
     key: K,
@@ -159,6 +177,22 @@ export function WelcomeScreen({
         </a>
         <div className="welcome-actions">
           <LanguageSwitch />
+          {user ? (
+            <AccountMenu
+              user={user}
+              onOpenTrips={onOpenTrips}
+              onSignOut={onSignOut}
+            />
+          ) : (
+            <button
+              className="login-link"
+              type="button"
+              onClick={onLogin}
+            >
+              <UserRound size={16} />
+              <span>{t("welcome.login")}</span>
+            </button>
+          )}
           <button
             className="demo-link"
             type="button"

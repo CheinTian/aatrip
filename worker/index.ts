@@ -1,4 +1,5 @@
 import type {
+  AuthProvider,
   Balance,
   CreateExpenseInput,
   CreateTripInput,
@@ -11,9 +12,22 @@ import type {
   TripSnapshot,
   VisitStats
 } from "../src/types";
+import {
+  configuredProviders,
+  finishOAuth,
+  getSessionUser,
+  logout,
+  startOAuth,
+  type AuthEnv
+} from "./auth";
+import {
+  ensureJoinMembership,
+  ensureOwnerMembership,
+  leaveTrip,
+  listUserTrips
+} from "./memberships";
 
-interface Env {
-  DB: D1Database;
+interface Env extends AuthEnv {
   ASSETS: Fetcher;
 }
 
@@ -99,10 +113,14 @@ const JSON_HEADERS = {
   "X-Content-Type-Options": "nosniff"
 };
 
-function json(data: unknown, status = 200) {
+function json(
+  data: unknown,
+  status = 200,
+  extraHeaders: Record<string, string> = {}
+) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: JSON_HEADERS
+    headers: { ...JSON_HEADERS, ...extraHeaders }
   });
 }
 
@@ -363,7 +381,12 @@ async function getSnapshot(
 async function createTripCore(
   db: D1Database,
   input: CreateTripInput
-): Promise<{ id: string; inviteCode: string }> {
+): Promise<{
+  id: string;
+  inviteCode: string;
+  memberIds: string[];
+  memberNames: string[];
+}> {
   const name = cleanText(input.name, 40);
   const destination = cleanText(input.destination, 40);
   const currency = CURRENCIES.has(String(input.currency).toUpperCase())
@@ -386,6 +409,7 @@ async function createTripCore(
   const id = uid();
   const code = inviteCode();
   const createdAt = new Date().toISOString();
+  const memberIds = memberNames.map(() => uid());
   const statements = [
     db
       .prepare(
@@ -410,7 +434,7 @@ async function createTripCore(
            VALUES (?, ?, ?, ?, ?)`
         )
         .bind(
-          uid(),
+          memberIds[index],
           id,
           memberName,
           COLORS[index % COLORS.length],
@@ -420,7 +444,18 @@ async function createTripCore(
   ];
 
   await db.batch(statements);
-  return { id, inviteCode: code };
+  return { id, inviteCode: code, memberIds, memberNames };
+}
+
+function ownerMemberId(
+  result: { memberIds: string[]; memberNames: string[] },
+  userName: string
+) {
+  const normalized = userName.trim().toLowerCase();
+  const index = result.memberNames.findIndex(
+    (name) => name.toLowerCase() === normalized
+  );
+  return result.memberIds[index >= 0 ? index : 0];
 }
 
 async function createExpenseCore(
@@ -687,6 +722,68 @@ async function handleApi(request: Request, env: Env) {
     return json({ ok: true, service: "aatrip" });
   }
 
+  if (path === "/api/auth/session" && method === "GET") {
+    try {
+      return json({
+        user: await getSessionUser(env, request),
+        providers: configuredProviders(env)
+      });
+    } catch {
+      return json({
+        user: null,
+        providers: configuredProviders(env)
+      });
+    }
+  }
+
+  if (path === "/api/auth/logout" && method === "POST") {
+    try {
+      const cleared = await logout(request, env);
+      return json({ ok: true }, 200, { "Set-Cookie": cleared });
+    } catch {
+      return error("退出登录失败", 500, "logout_failed");
+    }
+  }
+
+  const authMatch = path.match(
+    /^\/api\/auth\/(google|github)\/(start|callback)$/
+  );
+  if (authMatch && method === "GET") {
+    const provider = authMatch[1] as AuthProvider;
+    return authMatch[2] === "start"
+      ? startOAuth(request, env, provider)
+      : finishOAuth(request, env, provider);
+  }
+
+  if (path === "/api/me/trips" && method === "GET") {
+    const user = await getSessionUser(env, request);
+    if (!user) {
+      return error("请先登录", 401, "auth_required");
+    }
+    try {
+      return json({ trips: await listUserTrips(env.DB, user.id) });
+    } catch {
+      return error("读取行程失败", 500, "trips_unavailable");
+    }
+  }
+
+  const myTripMatch = path.match(/^\/api\/me\/trips\/([^/]+)$/);
+  if (myTripMatch && method === "DELETE") {
+    const user = await getSessionUser(env, request);
+    if (!user) {
+      return error("请先登录", 401, "auth_required");
+    }
+    try {
+      const tripId = decodeURIComponent(myTripMatch[1]);
+      const removed = await leaveTrip(env.DB, tripId, user.id);
+      return removed
+        ? json({ ok: true })
+        : error("你还没有加入这个行程", 404, "membership_not_found");
+    } catch {
+      return error("离开行程失败", 500, "leave_trip_failed");
+    }
+  }
+
   if (path === "/api/visits") {
     const date = visitDay();
 
@@ -729,8 +826,17 @@ async function handleApi(request: Request, env: Env) {
     }
 
     try {
+      const user = await getSessionUser(env, request).catch(() => null);
       const result = await createDemo(env.DB, locale);
-      return json(result, 201);
+      if (user) {
+        await ensureOwnerMembership(
+          env.DB,
+          result.id,
+          user.id,
+          ownerMemberId(result, user.name)
+        );
+      }
+      return json({ id: result.id, inviteCode: result.inviteCode }, 201);
     } catch (cause) {
       return errorFrom(cause, "创建示例失败", "demo_failed", 500);
     }
@@ -739,8 +845,17 @@ async function handleApi(request: Request, env: Env) {
   if (path === "/api/trips" && method === "POST") {
     try {
       const input = (await request.json()) as CreateTripInput;
+      const user = await getSessionUser(env, request).catch(() => null);
       const result = await createTripCore(env.DB, input);
-      return json(result, 201);
+      if (user) {
+        await ensureOwnerMembership(
+          env.DB,
+          result.id,
+          user.id,
+          ownerMemberId(result, user.name)
+        );
+      }
+      return json({ id: result.id, inviteCode: result.inviteCode }, 201);
     } catch (cause) {
       return errorFrom(cause, "创建失败", "create_failed");
     }
@@ -756,6 +871,10 @@ async function handleApi(request: Request, env: Env) {
         .first<{ id: string }>();
       if (!trip) {
         return error("没有找到这个行程码", 404, "invite_not_found");
+      }
+      const user = await getSessionUser(env, request).catch(() => null);
+      if (user) {
+        await ensureJoinMembership(env.DB, trip.id, user);
       }
       return json({ id: trip.id });
     } catch {

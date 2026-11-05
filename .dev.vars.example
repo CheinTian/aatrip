@@ -1,0 +1,8 @@
+# Copy to .dev.vars for local OAuth testing.
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+
+# Optional. Set when the public URL differs from the request origin.
+# AUTH_BASE_URL=http://127.0.0.1:8787

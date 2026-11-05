@@ -2197,6 +2197,715 @@ a {
   animation: reveal 180ms ease both;
 }
 
+/* Account */
+
+.login-link {
+  height: 40px;
+  padding: 0 14px;
+  border: 1.5px solid var(--forest);
+  border-radius: 5px;
+  background: var(--forest);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.login-link:hover {
+  background: var(--forest-2);
+}
+
+.account-menu {
+  position: relative;
+}
+
+.account-trigger {
+  height: 40px;
+  padding: 3px 10px 3px 4px;
+  border: 1.5px solid var(--line-dark);
+  border-radius: 20px;
+  background: var(--surface);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: box-shadow 150ms ease;
+}
+
+.account-trigger:hover {
+  box-shadow: 2px 2px 0 rgba(23, 35, 30, 0.14);
+}
+
+.account-avatar {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border-radius: 50%;
+  background: var(--forest);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: 10px;
+}
+
+.account-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.account-trigger-copy {
+  max-width: 112px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  line-height: 1.15;
+}
+
+.account-trigger-copy b {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.account-trigger-copy small {
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.account-trigger > svg {
+  flex: 0 0 auto;
+  color: var(--ink-soft);
+}
+
+.account-popover {
+  position: absolute;
+  top: calc(100% + 9px);
+  right: 0;
+  z-index: 55;
+  width: 236px;
+  padding: 7px;
+  border: 1.5px solid var(--line-dark);
+  border-radius: 7px;
+  background: var(--surface);
+  box-shadow: 6px 6px 0 rgba(23, 35, 30, 0.14);
+  animation: reveal 140ms ease both;
+}
+
+.account-identity {
+  margin-bottom: 6px;
+  padding: 9px 10px 11px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.account-identity span {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.account-identity small {
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.account-popover button {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.account-popover button:hover {
+  background: var(--gold-soft);
+}
+
+.account-popover .account-signout {
+  color: var(--red);
+}
+
+/* Sign-in dialog */
+
+.auth-backdrop {
+  z-index: 70;
+}
+
+.auth-dialog {
+  position: relative;
+  width: min(470px, 100%);
+  max-height: calc(100vh - 32px);
+  border: 1.5px solid var(--line-dark);
+  border-radius: 9px;
+  background: var(--surface);
+  box-shadow: 12px 12px 0 rgba(0, 0, 0, 0.24);
+  overflow: auto;
+  animation: rise 220ms ease both;
+}
+
+.auth-close {
+  position: absolute;
+  top: 13px;
+  right: 13px;
+  z-index: 2;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.14);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.auth-close:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.auth-ticket {
+  position: relative;
+  min-height: 90px;
+  padding: 22px 64px 22px 26px;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    var(--forest);
+  background-size: 18px 18px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  overflow: hidden;
+}
+
+.auth-ticket::after {
+  content: "";
+  position: absolute;
+  right: 18px;
+  bottom: -22px;
+  width: 86px;
+  height: 86px;
+  border: 1.5px solid rgba(255, 255, 255, 0.22);
+  border-radius: 50%;
+}
+
+.auth-ticket-mark {
+  font-family: var(--mono);
+  font-size: 30px;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+}
+
+.auth-ticket > span:nth-child(2) {
+  color: rgba(255, 255, 255, 0.64);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+}
+
+.auth-ticket-code {
+  margin-left: auto;
+  color: var(--gold);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+}
+
+.auth-dialog-body {
+  padding: 27px 28px 24px;
+}
+
+.auth-kicker {
+  color: var(--orange);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+}
+
+.auth-dialog h2 {
+  margin-top: 6px;
+  font-family: var(--display);
+  font-size: 31px;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.auth-copy {
+  margin-top: 9px;
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.auth-error {
+  margin-top: 16px;
+  padding: 11px 12px;
+  border-left: 3px solid var(--red);
+  background: #fff1f1;
+  color: #9a2828;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.auth-providers {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auth-provider {
+  width: 100%;
+  min-height: 58px;
+  padding: 0 15px;
+  border: 1.5px solid var(--line-dark);
+  border-radius: 7px;
+  background: #fff;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 11px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.auth-provider:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+  box-shadow: 3px 3px 0 rgba(23, 35, 30, 0.16);
+}
+
+.auth-provider-mark {
+  display: grid;
+  place-items: center;
+}
+
+.auth-provider-copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.auth-provider-copy b {
+  font-size: 14px;
+}
+
+.auth-provider-copy small {
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.auth-github {
+  border-color: var(--forest);
+  background: var(--forest);
+  color: #fff;
+}
+
+.auth-github:hover:not(:disabled) {
+  background: var(--forest-2);
+}
+
+.auth-github .auth-provider-copy small {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.auth-privacy {
+  margin-top: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  color: var(--ink-soft);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.auth-privacy svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.auth-guest {
+  width: 100%;
+  height: 40px;
+  margin-top: 12px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* My trips */
+
+.mytrips-page {
+  width: min(1480px, 100%);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 0 38px 28px;
+  display: flex;
+  flex-direction: column;
+}
+
+.mytrips-hero {
+  padding: clamp(44px, 7vh, 80px) 0 34px;
+  border-bottom: 1.5px solid var(--line-dark);
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 40px;
+}
+
+.mytrips-hero-copy {
+  min-width: 0;
+  animation: rise 480ms ease both;
+}
+
+.mytrips-hero-copy h1 {
+  margin-top: 20px;
+  font-family: var(--display);
+  font-size: clamp(42px, 5.5vw, 74px);
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+  overflow-wrap: anywhere;
+}
+
+.mytrips-hero-copy > p {
+  margin-top: 14px;
+  color: var(--ink-soft);
+  font-size: 15px;
+}
+
+.mytrips-hero-actions {
+  flex: 0 0 auto;
+  padding-bottom: 8px;
+  display: flex;
+  gap: 10px;
+  animation: rise 480ms 80ms ease both;
+}
+
+.mytrips-content {
+  flex: 1;
+  padding: 34px 0 56px;
+}
+
+.mytrips-state {
+  min-height: 280px;
+  border: 1.5px dashed var(--line);
+  border-radius: 8px;
+  background: rgba(255, 254, 250, 0.6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+.mytrips-state-error strong {
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 22px;
+}
+
+.mytrips-state-error p {
+  font-size: 13px;
+}
+
+.trip-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 20px;
+}
+
+.trip-card {
+  position: relative;
+  border: 1.5px solid var(--line-dark);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 5px 5px 0 rgba(23, 35, 30, 0.12);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: rise 420ms ease both;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.trip-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 5px;
+  background: var(--gold);
+}
+
+.trip-card:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 7px 7px 0 rgba(23, 35, 30, 0.14);
+}
+
+.trip-card-main {
+  flex: 1;
+  width: 100%;
+  padding: 22px 20px 16px;
+  border: 0;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  cursor: pointer;
+}
+
+.trip-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.trip-role {
+  padding: 3px 7px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.trip-role.owner {
+  border-color: rgba(240, 90, 54, 0.42);
+  background: var(--orange-soft);
+  color: var(--orange);
+}
+
+.trip-card-code {
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+}
+
+.trip-card h2 {
+  margin-top: 16px;
+  font-family: var(--display);
+  font-size: 25px;
+  line-height: 1.22;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.trip-card-destination,
+.trip-card-dates {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.trip-card-destination svg,
+.trip-card-dates svg {
+  flex: 0 0 auto;
+  opacity: 0.75;
+}
+
+.trip-card-stats {
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.trip-card-stats > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.trip-card-stats .trip-card-total {
+  margin-left: auto;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  color: var(--ink);
+}
+
+.trip-card-total small {
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.trip-card-total b {
+  font-family: var(--mono);
+  font-size: 15px;
+}
+
+.trip-card-open {
+  margin-top: 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--orange);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.trip-card-footer {
+  min-height: 44px;
+  padding: 0 20px;
+  border-top: 1px solid var(--line);
+  background: #fbfaf5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.trip-card-footer > span {
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}
+
+.trip-leave {
+  height: 30px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--ink-soft);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.trip-leave:hover:not(:disabled) {
+  background: #fff1f1;
+  color: var(--red);
+}
+
+.mytrips-empty {
+  min-height: 380px;
+  padding: 44px 24px;
+  border: 1.5px dashed var(--line-dark);
+  border-radius: 8px;
+  background: rgba(255, 254, 250, 0.65);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.empty-ticket {
+  position: relative;
+  width: 190px;
+  height: 112px;
+  margin-bottom: 24px;
+  border: 1.5px dashed var(--line-dark);
+  border-radius: 7px;
+  background: var(--gold-soft);
+  display: grid;
+  place-content: center;
+  justify-items: center;
+}
+
+.empty-ticket > span {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 0.14em;
+}
+
+.empty-ticket strong {
+  font-family: var(--display);
+  font-size: 46px;
+  line-height: 1;
+}
+
+.empty-ticket small {
+  color: var(--ink-soft);
+}
+
+.mytrips-empty h2 {
+  font-family: var(--display);
+  font-size: 30px;
+}
+
+.mytrips-empty > p {
+  max-width: 420px;
+  margin-top: 8px;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.mytrips-empty-actions {
+  margin-top: 22px;
+  display: flex;
+  gap: 10px;
+}
+
+.mytrips-footer {
+  margin-top: auto;
+}
+
 /* Expense dialog */
 
 .dialog-backdrop {
@@ -3107,6 +3816,133 @@ a {
     bottom: 88px;
     left: 16px;
     justify-content: center;
+  }
+}
+
+@media (max-width: 960px) {
+  .mytrips-page {
+    padding-inline: 24px;
+  }
+
+  .mytrips-hero {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 26px;
+  }
+
+  .mytrips-hero-actions {
+    padding-bottom: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .mytrips-page {
+    padding-inline: 16px;
+  }
+
+  .login-link {
+    width: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .login-link span {
+    display: none;
+  }
+
+  .account-trigger {
+    padding: 3px;
+    border-radius: 50%;
+  }
+
+  .account-trigger-copy,
+  .account-trigger > svg {
+    display: none;
+  }
+
+  .account-popover {
+    position: fixed;
+    top: 70px;
+    right: 14px;
+    left: 14px;
+    width: auto;
+  }
+
+  .mytrips-hero {
+    padding-top: 34px;
+    padding-bottom: 26px;
+    gap: 22px;
+  }
+
+  .mytrips-hero-copy h1 {
+    font-size: clamp(38px, 12vw, 52px);
+  }
+
+  .mytrips-hero-actions {
+    width: 100%;
+  }
+
+  .mytrips-hero-actions .button {
+    flex: 1;
+  }
+
+  .mytrips-content {
+    padding-top: 24px;
+  }
+
+  .trip-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mytrips-empty {
+    min-height: 340px;
+    padding: 34px 18px;
+  }
+
+  .mytrips-empty-actions {
+    width: 100%;
+  }
+
+  .mytrips-empty-actions .button {
+    flex: 1;
+  }
+
+  .auth-backdrop {
+    padding: 10px;
+    align-items: flex-end;
+  }
+
+  .auth-dialog {
+    width: 100%;
+    max-height: calc(100vh - 20px);
+    border-radius: 9px 9px 4px 4px;
+  }
+
+  .auth-ticket {
+    min-height: 78px;
+    padding: 18px 56px 18px 20px;
+  }
+
+  .auth-dialog-body {
+    padding: 22px 20px 18px;
+  }
+
+  .auth-dialog h2 {
+    font-size: 27px;
+  }
+}
+
+@media (max-width: 380px) {
+  .welcome-actions {
+    gap: 6px;
+  }
+
+  .welcome-nav .brand {
+    gap: 7px;
+  }
+
+  .language-switch > svg {
+    display: none;
   }
 }
 

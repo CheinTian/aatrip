@@ -1,28 +1,85 @@
 import { useCallback, useEffect, useState } from "react";
 import { LoaderCircle, TriangleAlert } from "lucide-react";
 import { api, getErrorMessage } from "./lib/api";
-import { useI18n } from "./lib/i18n";
+import { useI18n, type TranslationKey } from "./lib/i18n";
 import { recordVisit } from "./lib/visits";
-import type { TripSnapshot } from "./types";
+import type { AuthSession, TripSnapshot } from "./types";
+import { AuthDialog } from "./components/AuthDialog";
+import { MyTripsScreen } from "./components/MyTripsScreen";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { TripWorkspace } from "./components/TripWorkspace";
 
-function tripIdFromHash() {
-  const match = window.location.hash.match(/^#\/trip\/([^/?]+)/);
+function tripIdFromHash(hash = window.location.hash) {
+  const match = hash.match(/^#\/trip\/([^/?]+)/);
   return match ? decodeURIComponent(match[1]) : "";
+}
+
+function isTripsHash(hash: string) {
+  return /^#\/trips(?:\?|$)/.test(hash);
+}
+
+function welcomeModeFromHash(hash: string): "create" | "join" {
+  const queryIndex = hash.indexOf("?");
+  if (queryIndex === -1) return "create";
+  return new URLSearchParams(hash.slice(queryIndex + 1)).get("mode") === "join"
+    ? "join"
+    : "create";
 }
 
 export default function App() {
   const { t } = useI18n();
   const [tripId, setTripId] = useState(tripIdFromHash);
+  const [hash, setHash] = useState(() => window.location.hash);
   const [snapshot, setSnapshot] = useState<TripSnapshot | null>(null);
   const [loading, setLoading] = useState(Boolean(tripId));
   const [error, setError] = useState("");
+  const [session, setSession] = useState<AuthSession | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authError, setAuthError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  const user = session?.user ?? null;
+  const myTrips = isTripsHash(hash);
 
   const navigateToTrip = useCallback((id: string) => {
     window.location.hash = `#/trip/${encodeURIComponent(id)}`;
     setTripId(id);
   }, []);
+
+  const openMyTrips = useCallback(() => {
+    window.location.hash = "#/trips";
+  }, []);
+
+  const goHome = useCallback((mode: "create" | "join" = "create") => {
+    window.location.hash = mode === "join" ? "#/?mode=join" : "#/";
+  }, []);
+
+  const openAuth = useCallback(() => {
+    setAuthError("");
+    setAuthOpen(true);
+  }, []);
+
+  const signOut = useCallback(async () => {
+    try {
+      await api.logout();
+    } catch {
+      setNotice(t("errors.logout_failed"));
+      return;
+    }
+    setSession((current) =>
+      current ? { ...current, user: null } : current
+    );
+    if (isTripsHash(window.location.hash)) {
+      window.location.hash = "#/";
+    }
+  }, [t]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(""), 3200);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
 
   const loadTrip = useCallback(
     async (id: string, quiet = false) => {
@@ -45,7 +102,9 @@ export default function App() {
 
   useEffect(() => {
     const onHashChange = () => {
-      const nextId = tripIdFromHash();
+      const nextHash = window.location.hash;
+      setHash(nextHash);
+      const nextId = tripIdFromHash(nextHash);
       setTripId(nextId);
       if (!nextId) {
         setSnapshot(null);
@@ -55,6 +114,46 @@ export default function App() {
     window.addEventListener("hashchange", onHashChange);
     return () => window.removeEventListener("hashchange", onHashChange);
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("auth_error");
+    if (code) {
+      const key = `errors.${code}` as TranslationKey;
+      const translated = t(key);
+      setAuthError(
+        translated === key ? t("errors.request_failed") : translated
+      );
+      setAuthOpen(true);
+      params.delete("auth_error");
+      const query = params.toString();
+      window.history.replaceState(
+        null,
+        "",
+        `${window.location.pathname}${query ? `?${query}` : ""}${
+          window.location.hash
+        }`
+      );
+    }
+
+    void api
+      .getSession()
+      .then(setSession)
+      .catch(() =>
+        setSession({
+          user: null,
+          providers: { google: false, github: false }
+        })
+      )
+      .finally(() => setSessionLoading(false));
+  }, [t]);
+
+  useEffect(() => {
+    if (!sessionLoading && !user && myTrips) {
+      setAuthOpen(true);
+      window.location.hash = "#/";
+    }
+  }, [myTrips, sessionLoading, user]);
 
   useEffect(() => {
     if (tripId) {
@@ -71,7 +170,7 @@ export default function App() {
     if (tripId) await loadTrip(tripId, true);
   }, [loadTrip, tripId]);
 
-  if (loading && tripId) {
+  if ((loading && tripId) || (myTrips && sessionLoading)) {
     return (
       <main className="app-state">
         <div className="loader-mark" aria-hidden="true">
@@ -115,12 +214,72 @@ export default function App() {
     );
   }
 
+  if (myTrips && user) {
+    return (
+      <>
+        <MyTripsScreen
+          user={user}
+          onOpenTrip={navigateToTrip}
+          onOpenTrips={openMyTrips}
+          onGoHome={goHome}
+          onSignOut={signOut}
+        />
+        <AuthDialog
+          open={authOpen}
+          providers={session?.providers ?? { google: false, github: false }}
+          error={authError}
+          onClose={() => {
+            setAuthOpen(false);
+            setAuthError("");
+          }}
+        />
+        {notice && (
+          <div className="toast" role="status">
+            {notice}
+          </div>
+        )}
+      </>
+    );
+  }
+
+  if (myTrips && !user) {
+    return (
+      <main className="app-state">
+        <div className="loader-mark" aria-hidden="true">
+          <LoaderCircle size={28} />
+        </div>
+        <p>{t("app.loading")}</p>
+      </main>
+    );
+  }
+
   return (
-    <WelcomeScreen
-      onOpenTrip={navigateToTrip}
-      onCreateTrip={api.createTrip}
-      onJoinTrip={api.joinTrip}
-      onCreateDemo={api.createDemo}
-    />
+    <>
+      <WelcomeScreen
+        onOpenTrip={navigateToTrip}
+        onCreateTrip={api.createTrip}
+        onJoinTrip={api.joinTrip}
+        onCreateDemo={api.createDemo}
+        user={user}
+        initialMode={welcomeModeFromHash(hash)}
+        onLogin={openAuth}
+        onOpenTrips={openMyTrips}
+        onSignOut={signOut}
+      />
+      <AuthDialog
+        open={authOpen}
+        providers={session?.providers ?? { google: false, github: false }}
+        error={authError}
+        onClose={() => {
+          setAuthOpen(false);
+          setAuthError("");
+        }}
+      />
+      {notice && (
+        <div className="toast" role="status">
+          {notice}
+        </div>
+      )}
+    </>
   );
 }
