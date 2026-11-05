@@ -64,11 +64,14 @@ npx wrangler secret put GITHUB_CLIENT_SECRET
 
 - `GET /api/auth/session`：当前账号与已配置的登录方式
 - `GET /api/auth/google/start`、`GET /api/auth/github/start`：发起 OAuth
+- `POST /api/auth/mobile/exchange`：iOS 端用一次性 code + PKCE verifier 换取 Bearer 会话
 - `POST /api/auth/logout`：退出并清除会话
 - `GET /api/me/trips`：当前账号创建或加入的行程
 - `DELETE /api/me/trips/:id`：离开行程（不删除账本）
 
 未登录时仍可通过 6 位行程码打开共享账本；登录后创建行程会自动成为发起人，使用行程码加入会自动关联同名成员或补建一位成员。
+
+iOS 端使用 `ASWebAuthenticationSession` 完成授权，OAuth 回调仍然落在 Worker 的 Web 回调地址，因此不需要在 Google Cloud Console 或 GitHub OAuth App 中新增自定义 Scheme。授权完成后 Worker 会跳转 `aatrip://auth/callback?code=...`，App 再用本地 PKCE verifier 换取 30 天 Bearer 会话并存入 Keychain。一次性 code 有效期为 5 分钟，只能消费一次。
 
 ## 品牌资产
 

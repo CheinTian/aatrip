@@ -26,6 +26,8 @@ interface OAuthState {
   next: string;
   redirectUri: string;
   verifier?: string;
+  mobile?: boolean;
+  mobileChallenge?: string;
 }
 
 interface ProviderProfile {
@@ -40,8 +42,10 @@ const SESSION_COOKIE = "aatrip_session";
 const OAUTH_COOKIE = "aatrip_oauth";
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
 const OAUTH_TTL_SECONDS = 10 * 60;
+const MOBILE_HANDOFF_TTL_SECONDS = 5 * 60;
+const MOBILE_CALLBACK = "aatrip://auth/callback";
 
-class AuthFlowError extends Error {
+export class AuthFlowError extends Error {
   code: string;
 
   constructor(code: string, message: string) {
@@ -108,7 +112,12 @@ function decodeState(value: string): OAuthState | null {
       provider: parsed.provider,
       next: parsed.next,
       redirectUri: parsed.redirectUri,
-      verifier: typeof parsed.verifier === "string" ? parsed.verifier : ""
+      verifier: typeof parsed.verifier === "string" ? parsed.verifier : "",
+      mobile: parsed.mobile === true,
+      mobileChallenge:
+        typeof parsed.mobileChallenge === "string"
+          ? parsed.mobileChallenge
+          : ""
     };
   } catch {
     return null;
@@ -134,6 +143,32 @@ function cookie(name: string, value: string, request: Request, maxAge: number) {
 
 function clearCookie(name: string, request: Request) {
   return cookie(name, "", request, 0);
+}
+
+function readBearer(request: Request) {
+  const header = request.headers.get("Authorization") ?? "";
+  const match = /^Bearer\s+(.+)$/i.exec(header);
+  return match?.[1]?.trim() ?? "";
+}
+
+function mobileRedirect(params: Record<string, string>) {
+  const url = new URL(MOBILE_CALLBACK);
+  for (const [key, value] of Object.entries(params)) {
+    url.searchParams.set(key, value);
+  }
+  return url.toString();
+}
+
+function authFailureRedirect(
+  baseUrl: string,
+  stored: OAuthState | null,
+  code: string,
+  cookies: string[]
+) {
+  const target = stored?.mobile
+    ? mobileRedirect({ error: code })
+    : `${baseUrl}/?auth_error=${encodeURIComponent(code)}`;
+  return redirect(target, cookies);
 }
 
 function redirect(location: string, cookies: string[] = []) {
@@ -209,14 +244,26 @@ export async function startOAuth(
   provider: AuthProvider
 ) {
   const baseUrl = appBaseUrl(request, env);
+  const url = new URL(request.url);
+  const mobile = url.searchParams.get("client") === "ios";
   const credentials = providerCredentials(env, provider);
   if (!credentials) {
-    return redirect(`${baseUrl}/?auth_error=auth_not_configured`);
+    return redirect(
+      mobile
+        ? mobileRedirect({ error: "auth_not_configured" })
+        : `${baseUrl}/?auth_error=auth_not_configured`
+    );
   }
 
-  const url = new URL(request.url);
   const redirectUri = `${baseUrl}/api/auth/${provider}/callback`;
   const state = randomToken(24);
+  const mobileChallenge =
+    url.searchParams.get("code_challenge")?.trim() ?? "";
+
+  if (mobile && !/^[A-Za-z0-9_-]{43,128}$/.test(mobileChallenge)) {
+    return redirect(mobileRedirect({ error: "invalid_code_challenge" }));
+  }
+
   let verifier = "";
   let challenge = "";
 
@@ -230,7 +277,9 @@ export async function startOAuth(
     provider,
     next: safeNext(url.searchParams.get("next")),
     redirectUri,
-    verifier
+    verifier,
+    mobile,
+    mobileChallenge: mobile ? mobileChallenge : ""
   };
   const authorizeUrl =
     provider === "google"
@@ -489,6 +538,27 @@ async function upsertUser(
   return userId;
 }
 
+async function createSession(env: AuthEnv, userId: string) {
+  const token = randomToken(32);
+  const tokenHash = await hashSessionToken(token);
+  const now = new Date().toISOString();
+  const expiresAt = new Date(
+    Date.now() + SESSION_TTL_SECONDS * 1000
+  ).toISOString();
+
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM sessions WHERE expires_at <= ?").bind(now),
+    env.DB
+      .prepare(
+        `INSERT INTO sessions (token_hash, user_id, created_at, expires_at)
+         VALUES (?, ?, ?, ?)`
+      )
+      .bind(tokenHash, userId, now, expiresAt)
+  ]);
+
+  return { token, expiresAt };
+}
+
 export async function finishOAuth(
   request: Request,
   env: AuthEnv,
@@ -500,7 +570,7 @@ export async function finishOAuth(
   const clearOAuth = clearCookie(OAUTH_COOKIE, request);
 
   if (url.searchParams.get("error")) {
-    return redirect(`${baseUrl}/?auth_error=oauth_denied`, [clearOAuth]);
+    return authFailureRedirect(baseUrl, stored, "oauth_denied", [clearOAuth]);
   }
 
   if (
@@ -508,16 +578,22 @@ export async function finishOAuth(
     stored.provider !== provider ||
     stored.state !== url.searchParams.get("state")
   ) {
-    return redirect(`${baseUrl}/?auth_error=oauth_state_invalid`, [
-      clearOAuth
-    ]);
+    return authFailureRedirect(
+      baseUrl,
+      stored,
+      "oauth_state_invalid",
+      [clearOAuth]
+    );
   }
 
   const code = url.searchParams.get("code") ?? "";
   if (!code) {
-    return redirect(`${baseUrl}/?auth_error=oauth_exchange_failed`, [
-      clearOAuth
-    ]);
+    return authFailureRedirect(
+      baseUrl,
+      stored,
+      "oauth_exchange_failed",
+      [clearOAuth]
+    );
   }
 
   try {
@@ -527,54 +603,77 @@ export async function finishOAuth(
         ? await googleProfile(accessToken)
         : await githubProfile(accessToken);
     const userId = await upsertUser(env.DB, provider, profile);
-    const token = randomToken(32);
-    const tokenHash = await hashSessionToken(token);
-    const now = new Date().toISOString();
-    const expiresAt = new Date(
-      Date.now() + SESSION_TTL_SECONDS * 1000
-    ).toISOString();
 
-    await env.DB.batch([
-      env.DB
-        .prepare("DELETE FROM sessions WHERE expires_at <= ?")
-        .bind(now),
-      env.DB
-        .prepare(
-          `INSERT INTO sessions (token_hash, user_id, created_at, expires_at)
-           VALUES (?, ?, ?, ?)`
-        )
-        .bind(tokenHash, userId, now, expiresAt)
-    ]);
+    if (stored.mobile) {
+      if (!stored.mobileChallenge) {
+        return authFailureRedirect(
+          baseUrl,
+          stored,
+          "oauth_state_invalid",
+          [clearOAuth]
+        );
+      }
+
+      const handoff = randomToken(32);
+      const handoffHash = await hashSessionToken(handoff);
+      const now = new Date().toISOString();
+      const expiresAt = new Date(
+        Date.now() + MOBILE_HANDOFF_TTL_SECONDS * 1000
+      ).toISOString();
+
+      await env.DB.batch([
+        env.DB
+          .prepare("DELETE FROM mobile_auth_codes WHERE expires_at <= ?")
+          .bind(now),
+        env.DB
+          .prepare(
+            `INSERT INTO mobile_auth_codes
+             (code_hash, user_id, code_challenge, created_at, expires_at)
+             VALUES (?, ?, ?, ?, ?)`
+          )
+          .bind(
+            handoffHash,
+            userId,
+            stored.mobileChallenge,
+            now,
+            expiresAt
+          )
+      ]);
+
+      return redirect(mobileRedirect({ code: handoff }), [clearOAuth]);
+    }
+
+    const session = await createSession(env, userId);
 
     return redirect(`${baseUrl}${stored.next}`, [
       clearOAuth,
-      cookie(SESSION_COOKIE, token, request, SESSION_TTL_SECONDS)
+      cookie(
+        SESSION_COOKIE,
+        session.token,
+        request,
+        SESSION_TTL_SECONDS
+      )
     ]);
   } catch (cause) {
     const code =
       cause instanceof AuthFlowError ? cause.code : "oauth_profile_failed";
-    return redirect(`${baseUrl}/?auth_error=${code}`, [clearOAuth]);
+    return authFailureRedirect(baseUrl, stored, code, [clearOAuth]);
   }
 }
 
-export async function getSessionUser(
+async function getUserById(
   env: AuthEnv,
-  request: Request
+  userId: string
 ): Promise<AuthUser | null> {
-  const token = readCookie(request, SESSION_COOKIE);
-  if (!token) return null;
-  const tokenHash = await hashSessionToken(token);
   const row = await env.DB
     .prepare(
-      `SELECT u.id, u.email, u.name, u.avatar_url
-       FROM sessions s
-       JOIN users u ON u.id = s.user_id
-       WHERE s.token_hash = ? AND s.expires_at > ?`
+      `SELECT id, email, name, avatar_url
+       FROM users
+       WHERE id = ?`
     )
-    .bind(tokenHash, new Date().toISOString())
+    .bind(userId)
     .first<IdentityUserRow>();
   if (!row) return null;
-
   const identities = await env.DB
     .prepare(
       `SELECT provider FROM user_identities
@@ -595,13 +694,102 @@ export async function getSessionUser(
   };
 }
 
+export async function getSessionUser(
+  env: AuthEnv,
+  request: Request
+): Promise<AuthUser | null> {
+  const token = readBearer(request) || readCookie(request, SESSION_COOKIE);
+  if (!token) return null;
+  const tokenHash = await hashSessionToken(token);
+  const row = await env.DB
+    .prepare(
+      `SELECT user_id FROM sessions
+       WHERE token_hash = ? AND expires_at > ?`
+    )
+    .bind(tokenHash, new Date().toISOString())
+    .first<{ user_id: string }>();
+  if (!row) return null;
+  return getUserById(env, row.user_id);
+}
+
 export async function logout(request: Request, env: AuthEnv) {
-  const token = readCookie(request, SESSION_COOKIE);
+  const bearer = readBearer(request);
+  const token = bearer || readCookie(request, SESSION_COOKIE);
   if (token) {
     await env.DB
       .prepare("DELETE FROM sessions WHERE token_hash = ?")
       .bind(await hashSessionToken(token))
       .run();
   }
-  return clearCookie(SESSION_COOKIE, request);
+  return bearer ? null : clearCookie(SESSION_COOKIE, request);
+}
+
+interface MobileAuthRow {
+  user_id: string;
+  code_challenge: string;
+  expires_at: string;
+  used_at: string | null;
+}
+
+export async function exchangeMobileAuth(
+  request: Request,
+  env: AuthEnv
+) {
+  let body: { code?: string; verifier?: string };
+  try {
+    body = (await request.json()) as { code?: string; verifier?: string };
+  } catch {
+    throw new AuthFlowError("invalid_mobile_code", "Invalid handoff");
+  }
+
+  const code = typeof body.code === "string" ? body.code.trim() : "";
+  const verifier =
+    typeof body.verifier === "string" ? body.verifier.trim() : "";
+  if (!code || !verifier) {
+    throw new AuthFlowError("invalid_mobile_code", "Invalid handoff");
+  }
+
+  const codeHash = await hashSessionToken(code);
+  const row = await env.DB
+    .prepare(
+      `SELECT user_id, code_challenge, expires_at, used_at
+       FROM mobile_auth_codes
+       WHERE code_hash = ?`
+    )
+    .bind(codeHash)
+    .first<MobileAuthRow>();
+  const now = new Date().toISOString();
+
+  if (!row || row.used_at || row.expires_at <= now) {
+    throw new AuthFlowError("mobile_code_expired", "Sign-in expired");
+  }
+
+  const challenge = base64Url(await sha256(verifier));
+  if (!row.code_challenge || challenge !== row.code_challenge) {
+    throw new AuthFlowError("invalid_mobile_verifier", "Invalid sign-in");
+  }
+
+  const consumed = await env.DB
+    .prepare(
+      `UPDATE mobile_auth_codes
+       SET used_at = ?
+       WHERE code_hash = ? AND used_at IS NULL`
+    )
+    .bind(now, codeHash)
+    .run();
+  if ((consumed.meta?.changes ?? 0) !== 1) {
+    throw new AuthFlowError("mobile_code_used", "Sign-in already used");
+  }
+
+  const session = await createSession(env, row.user_id);
+  const user = await getUserById(env, row.user_id);
+  if (!user) {
+    throw new AuthFlowError("user_not_found", "Account not found");
+  }
+
+  return {
+    token: session.token,
+    expiresAt: session.expiresAt,
+    user
+  };
 }

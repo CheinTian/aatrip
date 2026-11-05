@@ -12,6 +12,10 @@ final class AppModel {
 
     private let api: AATripAPI
     private let defaults: UserDefaults
+    private let webAuth = WebAuthSession()
+    private var hasStoredAuth = false
+    private var pendingAuthVerifier: String?
+    private var handledAuthCodes: Set<String> = []
 
     var language: AppLanguage
     var activeTripId: String?
@@ -24,6 +28,16 @@ final class AppModel {
     var errorMessage: String?
     var toast: String?
     var visitStats: VisitStats?
+    var authUser: AuthUser?
+    var authProviders: AuthProviders = .none
+    var myTrips: [UserTrip] = []
+    var isLoadingTrips = false
+    var myTripsError: String?
+    var authenticatingProvider: AuthProvider?
+
+    var isAuthenticating: Bool {
+        authenticatingProvider != nil
+    }
 
     init(api: AATripAPI = AATripAPI(), defaults: UserDefaults = .standard) {
         self.api = api
@@ -42,6 +56,23 @@ final class AppModel {
         }
 
         self.lastTripId = defaults.string(forKey: DefaultsKey.lastTrip)
+
+        #if DEBUG
+        if let debugToken = ProcessInfo.processInfo.environment["AATRIP_AUTH_TOKEN"],
+           !debugToken.isEmpty {
+            api.setAuthorizationToken(debugToken)
+            hasStoredAuth = true
+        }
+        #endif
+
+        if !hasStoredAuth, let stored = KeychainSessionStore.load() {
+            if stored.isExpired {
+                KeychainSessionStore.clear()
+            } else {
+                api.setAuthorizationToken(stored.token)
+                hasStoredAuth = true
+            }
+        }
     }
 
     func launch() async {
@@ -49,6 +80,7 @@ final class AppModel {
         defer { isLaunching = false }
 
         async let visitor: Void = loadVisitStats()
+        await restoreSession()
 
         #if DEBUG
         if ProcessInfo.processInfo.environment["AATRIP_DEMO_ON_LAUNCH"] == "1" {
@@ -67,6 +99,71 @@ final class AppModel {
             await openTrip(tripId)
         }
         _ = await visitor
+    }
+
+    func signIn(_ provider: AuthProvider) async throws {
+        guard authProviders.isEnabled(provider) else {
+            throw AuthClientError(
+                code: "auth_not_configured",
+                message: "This sign-in option is not available"
+            )
+        }
+        guard authenticatingProvider == nil else { return }
+
+        let pkce = try PKCEPair()
+        let startURL = try api.authStartURL(
+            provider: provider,
+            challenge: pkce.challenge
+        )
+        authenticatingProvider = provider
+        pendingAuthVerifier = pkce.verifier
+        defer {
+            authenticatingProvider = nil
+            if pendingAuthVerifier == pkce.verifier {
+                pendingAuthVerifier = nil
+            }
+        }
+
+        let callbackURL = try await webAuth.authenticate(
+            url: startURL,
+            callbackScheme: "aatrip"
+        )
+        try await completeAuthCallback(callbackURL, verifier: pkce.verifier)
+    }
+
+    func signOut() async {
+        if hasStoredAuth {
+            try? await api.logout()
+        }
+        clearLocalAuth()
+        showToast(language.text("已退出登录", "Signed out"))
+    }
+
+    func loadMyTrips() async {
+        guard authUser != nil, !isLoadingTrips else { return }
+        isLoadingTrips = true
+        myTripsError = nil
+        defer { isLoadingTrips = false }
+
+        do {
+            myTrips = try await api.myTrips()
+        } catch {
+            if let apiError = error as? AATripAPIError, apiError.status == 401 {
+                clearLocalAuth()
+                showToast(language.text("登录已过期，请重新登录", "Your session expired. Sign in again."))
+            } else {
+                myTripsError = TripCopy.localizedError(error, language: language)
+            }
+        }
+    }
+
+    func leaveMyTrip(_ trip: UserTrip) async throws {
+        try await api.leaveMyTrip(id: trip.id)
+        myTrips.removeAll { $0.id == trip.id }
+        if activeTripId == trip.id {
+            leaveTrip()
+        }
+        showToast(language.text("已离开行程", "Left the trip"))
     }
 
     func setLanguage(_ next: AppLanguage) {
@@ -205,6 +302,11 @@ final class AppModel {
     func handleDeepLink(_ url: URL) async {
         guard url.scheme?.lowercased() == "aatrip" else { return }
 
+        if url.host?.lowercased() == "auth" {
+            await handleAuthDeepLink(url)
+            return
+        }
+
         if url.host == "trip" {
             let id = url.pathComponents.dropFirst().first
             if let id, !id.isEmpty {
@@ -222,6 +324,92 @@ final class AppModel {
                 errorMessage = TripCopy.localizedError(error, language: language)
             }
         }
+    }
+
+    private func restoreSession() async {
+        do {
+            let session = try await api.session()
+            authProviders = session.providers
+            if let user = session.user {
+                authUser = user
+                hasStoredAuth = true
+            } else if hasStoredAuth {
+                clearLocalAuth()
+            }
+        } catch {
+            // A transient network error should not discard a valid Keychain session.
+        }
+    }
+
+    private func handleAuthDeepLink(_ url: URL) async {
+        guard let verifier = pendingAuthVerifier else {
+            showToast(language.text("请从登录页面重新开始", "Start signing in again from the login page"))
+            return
+        }
+        do {
+            try await completeAuthCallback(url, verifier: verifier)
+        } catch let error as AuthClientError where error.code == "auth_cancelled" {
+            return
+        } catch {
+            showToast(TripCopy.localizedError(error, language: language))
+        }
+    }
+
+    private func completeAuthCallback(_ url: URL, verifier: String) async throws {
+        guard url.scheme?.lowercased() == "aatrip",
+              url.host?.lowercased() == "auth",
+              let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            throw AuthClientError(
+                code: "auth_callback_invalid",
+                message: "The sign-in response was invalid"
+            )
+        }
+
+        let values = Dictionary(
+            uniqueKeysWithValues: (components.queryItems ?? []).compactMap { item in
+                item.value.map { (item.name, $0) }
+            }
+        )
+        if let code = values["error"], !code.isEmpty {
+            throw AuthClientError(code: code, message: "Sign-in was not completed")
+        }
+        guard let code = values["code"], !code.isEmpty else {
+            throw AuthClientError(
+                code: "auth_callback_invalid",
+                message: "The sign-in response was incomplete"
+            )
+        }
+        guard !handledAuthCodes.contains(code) else { return }
+        handledAuthCodes.insert(code)
+
+        do {
+            let session = try await api.mobileExchange(code: code, verifier: verifier)
+            try KeychainSessionStore.save(
+                StoredAuthSession(token: session.token, expiresAt: session.expiresAt)
+            )
+            api.setAuthorizationToken(session.token)
+            hasStoredAuth = true
+            authUser = session.user
+            pendingAuthVerifier = nil
+            if let trip = snapshot?.trip {
+                _ = try? await api.joinTrip(code: trip.inviteCode)
+            }
+            await loadMyTrips()
+            showToast(language.text("登录成功", "Signed in"))
+        } catch {
+            handledAuthCodes.remove(code)
+            throw error
+        }
+    }
+
+    private func clearLocalAuth() {
+        KeychainSessionStore.clear()
+        api.setAuthorizationToken(nil)
+        hasStoredAuth = false
+        authUser = nil
+        myTrips = []
+        myTripsError = nil
+        pendingAuthVerifier = nil
     }
 
     private func loadVisitStats() async {

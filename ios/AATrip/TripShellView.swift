@@ -105,52 +105,71 @@ private struct TripToolbarModifier: ViewModifier {
 
     let snapshot: TripSnapshot
     let addExpense: () -> Void
+    @State private var showsAuth = false
+    @State private var showsMyTrips = false
 
     private var language: AppLanguage { model.language }
 
     func body(content: Content) -> some View {
-        content.toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                Button(action: addExpense) {
-                    Image(systemName: "plus")
-                        .fontWeight(.semibold)
+        content
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    AccountMenuButton(
+                        showsAuth: $showsAuth,
+                        showsMyTrips: $showsMyTrips,
+                        compact: true
+                    )
                 }
-                .accessibilityLabel(language.text("记一笔", "Add expense"))
 
-                Menu {
-                    Section(snapshot.trip.name) {
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button(action: addExpense) {
+                        Image(systemName: "plus")
+                            .fontWeight(.semibold)
+                    }
+                    .accessibilityLabel(language.text("记一笔", "Add expense"))
+
+                    Menu {
+                        Section(snapshot.trip.name) {
+                            Button {
+                                UIPasteboard.general.string = snapshot.trip.inviteCode
+                                model.showToast(language.text("行程码已复制", "Trip code copied"))
+                            } label: {
+                                Label(
+                                    language.text("复制行程码 \(snapshot.trip.inviteCode)", "Copy code \(snapshot.trip.inviteCode)"),
+                                    systemImage: "doc.on.doc"
+                                )
+                            }
+
+                            ShareLink(
+                                item: TripSharing.tripURL(snapshot.trip),
+                                subject: Text(language.text("AA簿邀请", "AA Ledger invite")),
+                                message: Text(TripSharing.inviteMessage(snapshot.trip, language: language))
+                            ) {
+                                Label(language.text("分享邀请", "Share invite"), systemImage: "square.and.arrow.up")
+                            }
+                        }
+
+                        Divider()
+
                         Button {
-                            UIPasteboard.general.string = snapshot.trip.inviteCode
-                            model.showToast(language.text("行程码已复制", "Trip code copied"))
+                            model.leaveTrip()
                         } label: {
-                            Label(
-                                language.text("复制行程码 \(snapshot.trip.inviteCode)", "Copy code \(snapshot.trip.inviteCode)"),
-                                systemImage: "doc.on.doc"
-                            )
+                            Label(language.text("返回首页", "Back home"), systemImage: "house")
                         }
-
-                        ShareLink(
-                            item: TripSharing.tripURL(snapshot.trip),
-                            subject: Text(language.text("AA簿邀请", "AA Ledger invite")),
-                            message: Text(TripSharing.inviteMessage(snapshot.trip, language: language))
-                        ) {
-                            Label(language.text("分享邀请", "Share invite"), systemImage: "square.and.arrow.up")
-                        }
-                    }
-
-                    Divider()
-
-                    Button {
-                        model.leaveTrip()
                     } label: {
-                        Label(language.text("返回首页", "Back home"), systemImage: "house")
+                        Image(systemName: "ellipsis.circle")
                     }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
+                    .accessibilityLabel(language.text("行程菜单", "Trip menu"))
                 }
-                .accessibilityLabel(language.text("行程菜单", "Trip menu"))
             }
-        }
+            .sheet(isPresented: $showsAuth) {
+                AuthSheet(language: language)
+                    .environment(model)
+            }
+            .sheet(isPresented: $showsMyTrips) {
+                MyTripsView(language: language)
+                    .environment(model)
+            }
     }
 }
 

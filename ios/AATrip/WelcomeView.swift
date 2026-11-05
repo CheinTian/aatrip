@@ -11,6 +11,8 @@ struct WelcomeView: View {
     @ScaledMetric(relativeTo: .largeTitle) private var heroSize: CGFloat = 48
     @State private var showsCreate = false
     @State private var showsJoin = false
+    @State private var showsAuth = false
+    @State private var showsMyTrips = false
     @State private var busyAction: BusyAction?
     @State private var errorText: String?
 
@@ -50,6 +52,14 @@ struct WelcomeView: View {
             JoinTripSheet()
                 .environment(model)
         }
+        .sheet(isPresented: $showsAuth) {
+            AuthSheet(language: language)
+                .environment(model)
+        }
+        .sheet(isPresented: $showsMyTrips) {
+            MyTripsView(language: language)
+                .environment(model)
+        }
         .alert(
             language.text("没有完成", "Something went wrong"),
             isPresented: Binding(
@@ -67,6 +77,10 @@ struct WelcomeView: View {
                 showsCreate = true
             } else if ProcessInfo.processInfo.environment["AATRIP_OPEN_JOIN"] == "1" {
                 showsJoin = true
+            } else if ProcessInfo.processInfo.environment["AATRIP_OPEN_AUTH"] == "1" {
+                showsAuth = true
+            } else if ProcessInfo.processInfo.environment["AATRIP_OPEN_MY_TRIPS"] == "1" {
+                showsMyTrips = true
             }
             #endif
         }
@@ -124,6 +138,10 @@ struct WelcomeView: View {
         HStack(spacing: 12) {
             BrandLockup()
             Spacer()
+            AccountMenuButton(
+                showsAuth: $showsAuth,
+                showsMyTrips: $showsMyTrips
+            )
             Menu {
                 ForEach(AppLanguage.allCases) { option in
                     Button {

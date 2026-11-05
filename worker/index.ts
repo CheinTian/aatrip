@@ -13,7 +13,9 @@ import type {
   VisitStats
 } from "../src/types";
 import {
+  AuthFlowError,
   configuredProviders,
+  exchangeMobileAuth,
   finishOAuth,
   getSessionUser,
   logout,
@@ -713,7 +715,7 @@ async function handleApi(request: Request, env: Env) {
       headers: {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type"
+        "Access-Control-Allow-Headers": "Authorization, Content-Type"
       }
     });
   }
@@ -739,9 +741,25 @@ async function handleApi(request: Request, env: Env) {
   if (path === "/api/auth/logout" && method === "POST") {
     try {
       const cleared = await logout(request, env);
-      return json({ ok: true }, 200, { "Set-Cookie": cleared });
+      return json(
+        { ok: true },
+        200,
+        cleared ? { "Set-Cookie": cleared } : {}
+      );
     } catch {
       return error("退出登录失败", 500, "logout_failed");
+    }
+  }
+
+  if (path === "/api/auth/mobile/exchange" && method === "POST") {
+    try {
+      return json(await exchangeMobileAuth(request, env));
+    } catch (cause) {
+      const code =
+        cause instanceof AuthFlowError
+          ? cause.code
+          : "mobile_auth_failed";
+      return error("登录已过期，请重新尝试", 401, code);
     }
   }
 

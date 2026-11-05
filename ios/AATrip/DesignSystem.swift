@@ -204,17 +204,11 @@ struct BrandMark: View {
     var size: CGFloat = 44
 
     var body: some View {
-        Text("AA")
-            .font(.system(size: size * 0.38, weight: .black, design: .serif))
-            .foregroundStyle(.white)
+        Image(size >= 56 ? "BrandMarkRoute" : "BrandMark")
+            .resizable()
+            .interpolation(.high)
+            .scaledToFit()
             .frame(width: size, height: size)
-            .background(Color.ledgerOrange)
-            .clipShape(RoundedRectangle(cornerRadius: size * 0.24, style: .continuous))
-            .overlay(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: size * 0.24, style: .continuous)
-                    .stroke(.white.opacity(0.22), lineWidth: 1)
-                    .padding(2)
-            }
             .accessibilityHidden(true)
     }
 }

@@ -16,11 +16,13 @@
 		7681D404191F822DFC7D5283 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2D3BF6EF1174777213484D5 /* Models.swift */; };
 		7FB543351D3D3DAB8B42EFDD /* Formatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88E0543A8987BC50ECCA0F75 /* Formatters.swift */; };
 		811BF82EEFEDE5E80634BA18 /* AATripTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0D81054E3E58D715C6B7BDF /* AATripTests.swift */; };
+		84EA58064D945EB61A07FB25 /* AuthClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35391964BF01FFD46F0E0ADC /* AuthClient.swift */; };
 		961DF188DA4A507A625C8826 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69A2AFAA40D9CA0131F4EFBD /* DashboardView.swift */; };
 		B9680CF527089D42B511EC5A /* Localization.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1D7D61A01218A35CCBF75B9 /* Localization.swift */; };
 		BB87290401BA379F43B9DEFB /* TripShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D2862C3607019855DDDD802 /* TripShellView.swift */; };
 		C14804D29BD6469864180F8A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5C8A017EAD12C2DA32D3F564 /* Assets.xcassets */; };
 		C1CBEEAB0BAE73131E55B6A7 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 256ABF464FB0692A0F323CB3 /* AppModel.swift */; };
+		CD0BBA0E0E874769F036CB4A /* AuthViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6ACFDBCD630E2C23050D4A0F /* AuthViews.swift */; };
 		D70E9281787BF4997784115E /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0F6725DFBFC4B6FE2D8A8ADD /* RootView.swift */; };
 		DFD7E71F9901D8C46AB7C10C /* AATripAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 606ABFC7E6ADAD6C657F04B7 /* AATripAPI.swift */; };
 		E79C1DDDE741AAB99D9F5DC3 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEAD243C2F9F236721738D1B /* DesignSystem.swift */; };
@@ -40,11 +42,13 @@
 /* Begin PBXFileReference section */
 		0F6725DFBFC4B6FE2D8A8ADD /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		256ABF464FB0692A0F323CB3 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		35391964BF01FFD46F0E0ADC /* AuthClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthClient.swift; sourceTree = "<group>"; };
 		3586D113322F864EF9BBAC3A /* TripSetupViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripSetupViews.swift; sourceTree = "<group>"; };
 		3D2862C3607019855DDDD802 /* TripShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TripShellView.swift; sourceTree = "<group>"; };
 		5C8A017EAD12C2DA32D3F564 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		606ABFC7E6ADAD6C657F04B7 /* AATripAPI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AATripAPI.swift; sourceTree = "<group>"; };
 		69A2AFAA40D9CA0131F4EFBD /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		6ACFDBCD630E2C23050D4A0F /* AuthViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthViews.swift; sourceTree = "<group>"; };
 		6DEA74EDDF0A8033A1693139 /* MembersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MembersView.swift; sourceTree = "<group>"; };
 		710D7D1CF3302FB1C0F26FAA /* ExpenseEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpenseEditorView.swift; sourceTree = "<group>"; };
 		82632F5158F8AF01CB7243CB /* ExpensesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpensesView.swift; sourceTree = "<group>"; };
@@ -69,6 +73,8 @@
 				606ABFC7E6ADAD6C657F04B7 /* AATripAPI.swift */,
 				B5525B5909D26BDD4EB9AF49 /* AATripApp.swift */,
 				256ABF464FB0692A0F323CB3 /* AppModel.swift */,
+				35391964BF01FFD46F0E0ADC /* AuthClient.swift */,
+				6ACFDBCD630E2C23050D4A0F /* AuthViews.swift */,
 				69A2AFAA40D9CA0131F4EFBD /* DashboardView.swift */,
 				AEAD243C2F9F236721738D1B /* DesignSystem.swift */,
 				710D7D1CF3302FB1C0F26FAA /* ExpenseEditorView.swift */,
@@ -225,6 +231,8 @@
 				DFD7E71F9901D8C46AB7C10C /* AATripAPI.swift in Sources */,
 				FB86C0DD3DC1B0DB9348A2D2 /* AATripApp.swift in Sources */,
 				C1CBEEAB0BAE73131E55B6A7 /* AppModel.swift in Sources */,
+				84EA58064D945EB61A07FB25 /* AuthClient.swift in Sources */,
+				CD0BBA0E0E874769F036CB4A /* AuthViews.swift in Sources */,
 				961DF188DA4A507A625C8826 /* DashboardView.swift in Sources */,
 				E79C1DDDE741AAB99D9F5DC3 /* DesignSystem.swift in Sources */,
 				619A61C0754DFC34B22D07FF /* ExpenseEditorView.swift in Sources */,

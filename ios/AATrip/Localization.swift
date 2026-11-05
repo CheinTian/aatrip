@@ -71,6 +71,41 @@ enum TripCopy {
     }
 
     static func localizedError(_ error: Error, language: AppLanguage) -> String {
+        if let authError = error as? AuthClientError {
+            switch authError.code {
+            case "auth_cancelled":
+                return language.text("已取消登录", "Sign-in was cancelled")
+            case "auth_not_configured":
+                return language.text("这个登录方式暂未开通", "This sign-in option is not available yet")
+            case "oauth_denied":
+                return language.text("你取消了第三方授权", "You declined the provider authorization")
+            case "oauth_state_invalid", "invalid_code_challenge":
+                return language.text("登录验证已过期，请重试", "The sign-in check expired. Try again.")
+            case "oauth_exchange_failed", "oauth_profile_failed":
+                return language.text("无法完成第三方登录，请稍后重试", "The provider could not complete sign-in. Try again shortly.")
+            case "mobile_code_expired", "mobile_code_used":
+                return language.text("登录已过期，请重新尝试", "Sign-in expired. Please try again.")
+            case "invalid_mobile_code", "invalid_mobile_verifier", "auth_callback_invalid", "auth_callback_missing":
+                return language.text("登录响应不完整，请重新尝试", "The sign-in response was incomplete. Please try again.")
+            case "auth_required":
+                return language.text("请先登录", "Sign in first")
+            case "membership_not_found":
+                return language.text("你还没有加入这个行程", "You have not joined this trip")
+            case "keychain_failed":
+                return language.text("无法安全保存登录状态，请重试", "The sign-in session could not be saved securely")
+            case "auth_session_unavailable":
+                return language.text("无法打开登录页面，请稍后重试", "Could not open the sign-in page")
+            case "auth_in_progress":
+                return language.text("正在登录，请稍候", "A sign-in is already in progress")
+            case "secure_random_failed":
+                return language.text("无法创建安全登录请求，请重试", "Could not create a secure sign-in request")
+            case "user_not_found":
+                return language.text("账号不存在，请重新登录", "That account could not be found")
+            default:
+                break
+            }
+        }
+
         if let apiError = error as? AATripAPIError {
             switch apiError.code {
             case "trip_name_required", "trip_name_empty":

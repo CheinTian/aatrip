@@ -18,6 +18,7 @@ final class AATripAPI {
     private let session: URLSession
     private let decoder = JSONDecoder()
     private let encoder = JSONEncoder()
+    private var authorizationToken: String?
 
     init(baseURL: URL? = nil, session: URLSession = .shared) {
         let environmentURL = ProcessInfo.processInfo.environment["AATRIP_API_BASE_URL"]
@@ -30,6 +31,60 @@ final class AATripAPI {
             ?? plistURL
             ?? URL(string: "https://aatrip.chein0813843.workers.dev")!
         self.session = session
+    }
+
+    func setAuthorizationToken(_ token: String?) {
+        authorizationToken = token
+    }
+
+    func authStartURL(provider: AuthProvider, challenge: String) throws -> URL {
+        let startURL = baseURL.appending(path: "api/auth/\(provider.rawValue)/start")
+        guard var components = URLComponents(
+            url: startURL,
+            resolvingAgainstBaseURL: false
+        ) else {
+            throw URLError(.badURL)
+        }
+        components.queryItems = [
+            URLQueryItem(name: "client", value: "ios"),
+            URLQueryItem(name: "code_challenge", value: challenge),
+            URLQueryItem(name: "next", value: "/#/trips")
+        ]
+        guard let url = components.url else {
+            throw URLError(.badURL)
+        }
+        return url
+    }
+
+    func session() async throws -> AuthSession {
+        try await request(path: "/api/auth/session")
+    }
+
+    func mobileExchange(code: String, verifier: String) async throws -> MobileAuthToken {
+        try await request(
+            path: "/api/auth/mobile/exchange",
+            method: "POST",
+            body: ["code": code, "verifier": verifier]
+        )
+    }
+
+    func logout() async throws {
+        let _: EmptyResponse = try await request(
+            path: "/api/auth/logout",
+            method: "POST"
+        )
+    }
+
+    func myTrips() async throws -> [UserTrip] {
+        let response: UserTripsResponse = try await request(path: "/api/me/trips")
+        return response.trips
+    }
+
+    func leaveMyTrip(id: String) async throws {
+        let _: EmptyResponse = try await request(
+            path: "/api/me/trips/\(id)",
+            method: "DELETE"
+        )
     }
 
     func trip(id: String) async throws -> TripSnapshot {
@@ -124,6 +179,12 @@ final class AATripAPI {
         request.timeoutInterval = 20
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        if let authorizationToken {
+            request.setValue(
+                "Bearer \(authorizationToken)",
+                forHTTPHeaderField: "Authorization"
+            )
+        }
         request.httpBody = bodyData
 
         let (data, response) = try await session.data(for: request)

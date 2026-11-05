@@ -117,6 +117,73 @@ struct VisitStats: Decodable, Sendable {
     let date: String
 }
 
+enum AuthProvider: String, CaseIterable, Codable, Identifiable, Sendable {
+    case google
+    case github
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .google: "Google"
+        case .github: "GitHub"
+        }
+    }
+}
+
+struct AuthProviders: Codable, Equatable, Sendable {
+    let google: Bool
+    let github: Bool
+
+    static let none = AuthProviders(google: false, github: false)
+
+    func isEnabled(_ provider: AuthProvider) -> Bool {
+        switch provider {
+        case .google: google
+        case .github: github
+        }
+    }
+}
+
+struct AuthUser: Codable, Identifiable, Hashable, Sendable {
+    let id: String
+    let name: String
+    let email: String
+    let avatarUrl: String
+    let providers: [AuthProvider]
+}
+
+struct AuthSession: Decodable, Sendable {
+    let user: AuthUser?
+    let providers: AuthProviders
+}
+
+struct MobileAuthToken: Decodable, Sendable {
+    let token: String
+    let expiresAt: String
+    let user: AuthUser
+}
+
+struct UserTrip: Decodable, Identifiable, Hashable, Sendable {
+    let id: String
+    let name: String
+    let destination: String
+    let startDate: String
+    let endDate: String
+    let currency: String
+    let inviteCode: String
+    let role: String
+    let joinedAt: String
+    let memberCount: Int
+    let expenseCount: Int
+    let totalCents: Int
+    let lastActivityAt: String
+}
+
+struct UserTripsResponse: Decodable, Sendable {
+    let trips: [UserTrip]
+}
+
 struct EmptyResponse: Decodable, Sendable {
     let ok: Bool
 }
