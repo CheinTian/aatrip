@@ -35,6 +35,7 @@ import {
 import { getErrorMessage } from "../lib/api";
 import { useI18n, type TranslationKey } from "../lib/i18n";
 import type { Expense, TripSnapshot } from "../types";
+import { BrandMark } from "./BrandMark";
 import { ExpenseDialog } from "./ExpenseDialog";
 import { LanguageSwitch } from "./LanguageSwitch";
 
@@ -244,7 +245,7 @@ export function TripWorkspace({
       <aside className="sidebar">
         <div className="sidebar-top">
           <a className="sidebar-brand" href="#" onClick={onLeave}>
-            <span className="brand-mark">AA</span>
+            <BrandMark />
             <span className="brand-copy">
               <b>{t("brand.name")}</b>
               <small>{t("brand.tagline")}</small>

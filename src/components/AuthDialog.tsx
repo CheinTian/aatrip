@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ArrowRight, Github, LoaderCircle, Lock, X } from "lucide-react";
 import { useI18n } from "../lib/i18n";
 import type { AuthProvider, AuthProviders } from "../types";
+import { BrandMark } from "./BrandMark";
 
 interface AuthDialogProps {
   open: boolean;
@@ -94,7 +95,7 @@ export function AuthDialog({
         </button>
 
         <div className="auth-ticket" aria-hidden="true">
-          <span className="auth-ticket-mark">AA</span>
+          <BrandMark variant="route" size={64} className="auth-ticket-mark" />
           <span>ACCOUNT · 2026</span>
           <span className="auth-ticket-code">····</span>
         </div>

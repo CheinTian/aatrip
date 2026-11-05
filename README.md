@@ -1,5 +1,7 @@
 # AA簿
 
+![AA簿 · AA Ledger](public/brand/aa-lockup-zh.png)
+
 面向旅行搭子的 AA 分账 Web 应用。每个行程对应一个共享账本，同行成员可以通过 6 位邀请码加入，记录共同支出并自动计算结算方案。
 
 ## 功能
@@ -67,6 +69,24 @@ npx wrangler secret put GITHUB_CLIENT_SECRET
 - `DELETE /api/me/trips/:id`：离开行程（不删除账本）
 
 未登录时仍可通过 6 位行程码打开共享账本；登录后创建行程会自动成为发起人，使用行程码加入会自动关联同名成员或补建一位成员。
+
+## 品牌资产
+
+标识由三部分组成：印章橙的圆角票根、奶油白的 Bodoni 双 A 账页，以及穿过印章的金色路线。双 A 的横杠落在同一条线上，像账本里的对账线；金色路线保留“出发—抵达”的旅行语义。
+
+| 文件 | 用途 |
+| --- | --- |
+| `public/brand/aa-mark.svg` | 紧凑标记，用于导航和小尺寸场景 |
+| `public/brand/aa-mark-route.svg` | 带金色路线的完整标记，用于登录票据和封面 |
+| `public/brand/aa-mark-mono.svg` | 单色版，用于印刷或压印 |
+| `public/brand/aa-lockup-zh.png` / `aa-lockup-zh-dark.png` | 中文横向锁定图 |
+| `public/brand/aa-lockup-en.png` / `aa-lockup-en-dark.png` | 英文横向锁定图 |
+| `public/brand/aa-app-icon.svg` / `aa-app-icon-1024.png` | 应用图标 |
+| `public/favicon.svg`、`favicon-32.png`、`apple-touch-icon.png` | 站点图标 |
+
+品牌色：暖纸 `#F3F1EB`、森林绿 `#173A2B`、印章橙 `#F05A36`、票据金 `#E5A72D`、奶油白 `#FFFDF7`。字标使用 Noto Serif SC 900，辅助字使用 DM Mono。
+
+使用时保留印章四周至少 1/4 印章宽度的留白；不要改变印章橙色，也不要单独拉伸双 A。深色底使用 `-dark` 锁定图，或在代码中把标记描边设为奶油白。
 
 ## 部署
 

@@ -16,6 +16,7 @@ import { getErrorMessage } from "../lib/api";
 import { useI18n, type Locale } from "../lib/i18n";
 import type { AuthUser, CreateTripInput } from "../types";
 import { AccountMenu } from "./AccountMenu";
+import { BrandMark } from "./BrandMark";
 import { LanguageSwitch } from "./LanguageSwitch";
 import { VisitStats } from "./VisitStats";
 
@@ -169,7 +170,7 @@ export function WelcomeScreen({
     <main className="welcome-page">
       <header className="welcome-nav">
         <a className="brand" href="#" aria-label={t("welcome.homeLabel")}>
-          <span className="brand-mark">AA</span>
+          <BrandMark />
           <span className="brand-copy">
             <b>{t("brand.name")}</b>
             <small>{t("brand.tagline")}</small>

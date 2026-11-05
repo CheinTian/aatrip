@@ -15,6 +15,7 @@ import { api, getErrorMessage } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import type { AuthUser, UserTrip } from "../types";
 import { AccountMenu } from "./AccountMenu";
+import { BrandMark } from "./BrandMark";
 import { LanguageSwitch } from "./LanguageSwitch";
 
 interface MyTripsScreenProps {
@@ -84,7 +85,7 @@ export function MyTripsScreen({
     <main className="mytrips-page">
       <header className="welcome-nav mytrips-nav">
         <a className="brand" href="#/" aria-label={t("welcome.homeLabel")}>
-          <span className="brand-mark">AA</span>
+          <BrandMark />
           <span className="brand-copy">
             <b>{t("brand.name")}</b>
             <small>{t("brand.tagline")}</small>
